@@ -58,12 +58,15 @@ def add_host_has_verifications(df):
     return df
 
 
+
+
 def clean_airbnb_csv(path, x):
     df = load_csv(path)
     df = process_minimum_nights(df, x)
     df = process_review_columns(df, x)
     df = process_binary_columns(df)
     df = add_host_has_verifications(df)
+
     return df
 
 
