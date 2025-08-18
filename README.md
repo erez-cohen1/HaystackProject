@@ -31,9 +31,9 @@
 ## analyze:
 
 ### frequent itemsets:
-on all high rated listings
-on all high estimated_occupancy_l365d (not our calc)
-on all high estimated_revenue_l365d (not our calc)
+- on all high rated listings
+- on all high estimated_occupancy_l365d (not our calc)
+- on all high estimated_revenue_l365d (not our calc)
 
 
 
