@@ -1,7 +1,7 @@
 # general pipeline:
 ### first steps:
--download databases of cities - amsterdam, barcelona, paris
--add city col and merge databases to one big database
+- download databases of cities - amsterdam, barcelona, paris
+- add city col and merge databases to one big database
 
 ## clean:
 - if missing and binary put 0
