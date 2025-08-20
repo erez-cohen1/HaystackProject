@@ -7,21 +7,20 @@ from mlxtend.frequent_patterns import apriori, association_rules
 import clean_data
 
 
-
-
 def add_private_bathrooms_col(df):
     """
     when entire apartment always private, when shared always shared except if written explicitly that private
     :param df:
     :return:
     """
+    df=df.copy()
     private_col = 'bathroom_private'
     df[private_col] = (
             df['bathrooms_text'].str.contains('private', case=False, na=False) |
             df['property_type'].str.contains('entire', case=False, na=False)
     ).astype(int)
     df['bathrooms'] = pd.to_numeric(df['bathrooms'], errors='coerce')
-
+    return df
 
 def convert_bool_to_bin(df, old_col, new_col):
     df[new_col] = df[old_col].str.lower().map({'f': 0, 't': 1})
@@ -62,6 +61,7 @@ def normalize_cols(df):
     #should not be here, keeps the popular ones
     df = df[df['review_scores_rating'] >=4.9].copy()
 
+    df = add_private_bathrooms_col(df)
 
     #convert the bools to binary
     convert_bool_to_bin(df,'host_is_superhost','superhost')
@@ -145,7 +145,8 @@ def normalize_cols(df):
                   'min_nights_1', 'min_nights_2', 'min_nights_3', 'min_nights_4+'
                   ]
                  )
-    save_test_csv(df, result_cols)
+    return df[result_cols]
+
 
 
 def print_rows_per_val(col):
@@ -197,6 +198,7 @@ def find_buckets_price(df):
 
 def norm_neighborhoods(df):
     """
+    only for amsterdam
     turn each unique neighbourhood into a binary column (22 cols). could create a sparsity problem that can be imporved
     by grouping them to areas i.e. west,south,center...
     :param df:
@@ -219,6 +221,7 @@ def norm_neighborhoods(df):
 
 def norm_property_type(df):
     """
+    only for amsterdam
     divides the property type into 4 categories each has its own binary column
     :param df:
     :return:
@@ -372,7 +375,7 @@ def calculate_sparsity(df):
     print(f"Sparsity: {sparsity:.2%}")
 
 
-def merge_databases():
+def create_merged_databases():
     """
     Merges multiple databases with the same structure while:
     1. Ensuring unique IDs across all databases
@@ -423,12 +426,11 @@ def merge_databases():
     return merged_df, report
 
 if __name__ == '__main__':
-    # df = pd.read_csv('listings_clean.csv')
-    # clean_data.remove_rows(df,"name_test")
-    # df =pd.read_csv('listings_clean.csv')
-    # df=clean_bathrooms(df)
+    pass
+    # create_merged_databases()
+    # clean_data.clean_db(pd.read_csv('merged_database.csv'), 'clean_merged_database.csv')
+    # df=pd.read_csv('cleaned_merged_database.csv')
     # df=normalize_cols(df)
+    # df.to_csv('normalized_freq_db.csv',index=False)
     # find_freq_itemsets(df)
-    # _,report=merge_databases()
-    # print(report)
-    clean_data.clean_db(pd.read_csv('listings_ams.csv'),'test_name')
+
