@@ -2,7 +2,7 @@ import pandas as pd
 
 
 
-def remove_rows(df,new_df_name):
+def remove_rows(df):
     """
     removes rows from a dataframe with empty values in the required_columns
     :param df:
@@ -31,11 +31,7 @@ def remove_rows(df,new_df_name):
     print(missing_counts)
 
     # Remove rows where any of these are missing
-    df_clean = df.dropna(subset=required_columns)
-    print(f"\nOriginal rows: {len(df)}, After cleaning: {len(df_clean)}")
-    # f"{new_df_name}.csv"
-    df_clean.to_csv(f"{new_df_name}.csv", index=False)
-    print(f"Cleaned data saved to {new_df_name}.csv")
+    return df.dropna(subset=required_columns)
 
 def convert_bathroom_text(df):
     """
@@ -57,3 +53,13 @@ def convert_bathroom_text(df):
     # Fill empty target_column values
     df[target_col] = df[target_col].fillna(df['extracted_number'])
     return df
+
+def clean_db(df,new_df_name):
+    orig_len=len(df)
+
+    df = remove_rows(df)
+    df=convert_bathroom_text(df)
+
+    print(f"\nOriginal rows: {orig_len}, After cleaning: {len(df)}")
+    df.to_csv(f"{new_df_name}.csv", index=False)
+    print(f"Cleaned data saved to {new_df_name}.csv")

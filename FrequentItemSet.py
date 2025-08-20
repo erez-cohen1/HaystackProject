@@ -145,7 +145,7 @@ def normalize_cols(df):
                   'min_nights_1', 'min_nights_2', 'min_nights_3', 'min_nights_4+'
                   ]
                  )
-    test_csv(df,result_cols)
+    save_test_csv(df, result_cols)
 
 
 def print_rows_per_val(col):
@@ -282,22 +282,8 @@ def plot_dist(col):
     plt.show()
 
 
-# def normalize_host_response_rate(df):
-#     """
-#     we didnt use this because the median is 100%
-#     if above 90 percent then turn to 1 otherwise 0
-#     :param df:
-#     :return:
-#     """
-#     df['percentage_clean'] = df['host_response_rate'].str.replace('%', '').astype(float)
-#     mean_val = df['percentage_clean'].mean()
-#     median_val = df['percentage_clean'].median()
-#
-#     print("Mean:", mean_val)
-#     print("Median:", median_val)
 
-
-def test_csv(df,result_cols):
+def save_test_csv(df, result_cols):
     """
     for testing, saves csv called test.csv with specific columns
     :param df:
@@ -307,9 +293,9 @@ def test_csv(df,result_cols):
     result = df[result_cols]
     result.to_csv('test.csv',index=False)
 
-def find_freq_itemsets(df2):
+def find_freq_itemsets(df):
 
-    df = pd.read_csv("test.csv")
+    # df = pd.read_csv("test.csv")
     df = df.dropna()
     df = df.drop(columns=["id"])
     # Find frequent itemsets with minimum support threshold
@@ -443,5 +429,6 @@ if __name__ == '__main__':
     # df=clean_bathrooms(df)
     # df=normalize_cols(df)
     # find_freq_itemsets(df)
-    _,report=merge_databases()
-    print(report)
+    # _,report=merge_databases()
+    # print(report)
+    clean_data.clean_db(pd.read_csv('listings_ams.csv'),'test_name')
