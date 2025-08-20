@@ -55,8 +55,8 @@ def convert_bathroom_text(df):
     return df
 
 def clean_db(df,new_df_name):
-    orig_len=len(df)
 
+    orig_len=len(df)
     df = remove_rows(df)
     df=convert_bathroom_text(df)
 
