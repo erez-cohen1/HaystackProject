@@ -10,6 +10,7 @@ import torch
 from transformers import CLIPProcessor, CLIPModel
 from concurrent.futures import ThreadPoolExecutor
 
+# should be uncommented
 # Initialize CLIP model (once)
 device = "cuda" if torch.cuda.is_available() else "cpu"
 clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
@@ -22,16 +23,6 @@ def analyze_image_batch(url_list):
     """Process a batch of image URLs according to spec"""
     images = []
 
-    # 1. Download images (with error handling)
-    # for url in url_list:
-    #     try:
-    #         response = requests.get(url, timeout=5)
-    #         response.raise_for_status()  # Raise error for bad status
-    #         img = Image.open(BytesIO(response.content)).convert("RGB")
-    #         images.append(img)
-    #     except Exception as e:
-    #         print(f"⚠️ Failed to download {url}: {str(e)}")
-    #         images.append(None)
     with ThreadPoolExecutor(max_workers=8) as executor:
         images = list(executor.map(download_image, url_list))
     # 2. Process valid images with CLIP (batched)
@@ -76,7 +67,8 @@ def analyze_image_batch(url_list):
         np_img = np.array(img)
         height, width = np_img.shape[:2]
         gray = cv2.cvtColor(np_img, cv2.COLOR_RGB2GRAY)
-        edges = cv2.Canny(gray, 100, 200)
+        # edges = cv2.Canny(gray, 100, 200)
+        # edges = cv2.Canny(gray, 50, 150)
 
         # New direct hue calculation
         hsv_img = cv2.cvtColor(np_img, cv2.COLOR_RGB2HSV)
@@ -89,8 +81,8 @@ def analyze_image_batch(url_list):
         results.append({
             'resolution': (width, height),
             'brightness': float(np.mean(gray)),
-            'sharpness': float(cv2.Laplacian(gray, cv2.CV_64F).var()),
-            'clutter_score': float(np.sum(edges > 0) / edges.size * 100),
+            # 'sharpness': float(cv2.Laplacian(gray, cv2.CV_64F).var()),
+            # 'clutter_score': calculate_clutter(img),
             'mood': "warm" if (avg_hue < 50 or avg_hue > 330) else "cool",
             'room_type': room_type,
             'room_confidence': float(room_confidence)
@@ -108,5 +100,22 @@ def download_image(url):
         return None
 
 
-
+# def calculate_clutter(img):
+#     np_img = np.array(img)
+#     gray = cv2.cvtColor(np_img, cv2.COLOR_RGB2GRAY)
+#
+#     # 1. Edge Density (existing approach)
+#     edges = cv2.Canny(gray, 100, 200)
+#     edge_pct = np.sum(edges > 0) / edges.size
+#
+#     # 2. Object Count (new)
+#     contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+#     obj_count = len([c for c in contours if cv2.contourArea(c) > 100])  # Min 100px area
+#
+#     # 3. Color Variance (new)
+#     color_std = np.std(np_img, axis=(0, 1)).mean()  # Higher = more color variation
+#
+#     # Combined score (adjust weights as needed)
+#     clutter_score = 0.4 * edge_pct + 0.4 * (obj_count / 10) + 0.2 * (color_std / 50)
+#     return float(clutter_score * 100)  # Convert to percentage
 

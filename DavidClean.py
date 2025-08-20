@@ -75,7 +75,7 @@ def normalize_cols(df):
     :return:
     """
     #should not be here, keeps the popular ones
-    df = df[df['review_scores_rating'] <3.5].copy()
+    df = df[df['review_scores_rating'] >=4.9].copy()
 
 
     #convert the bools to binary
@@ -83,7 +83,6 @@ def normalize_cols(df):
     convert_bool_to_bin(df,'host_identity_verified','host_verified')
     convert_bool_to_bin(df,'instant_bookable','instant_bookable_bin')
     convert_bool_to_bin(df,'host_has_profile_pic','host_profile_pic')
-
 
     #buckets for host_total_listings_count [1-2,3-10,11-200,200+]
     host_total_col='host_total_listings_count'
@@ -128,23 +127,13 @@ def normalize_cols(df):
         .str.replace(r'[^\d.]', '', regex=True)  # Remove all non-numeric chars except .
         .astype(float)
     )
-    df = df[df['price_clean'] <= 1000]
+    df = df[df['price_clean'] <= 5000]
     price_col='price_clean'
     price_bins = [(0, 181.4), (181.5, 282.4), (282.5,415.3),(415.4,635),(635,None)]
     price_labels=['price_0-181','price_181-282','price_282-415','price_415-635','price_635+']
     df=bucketize_column(df,price_col,price_bins,price_labels)
-    # df['price_0-181'] = ((df[price_col] >= 0) & (df[price_col] <= 181.4)).astype(int)
-    # df['price_181-282'] = ((df[price_col] > 181.4) & (df[price_col] <= 282.4)).astype(int)
-    # df['price_282-415'] = ((df[price_col] > 282.4) & (df[price_col] <= 415.3)).astype(int)
-    # df['price_415-635'] = ((df[price_col] > 415.3) & (df[price_col] <= 635)).astype(int)
-    # df['price_635+'] = (df[price_col] >= 635).astype(int)
-    # test_csv(df,['id','price_clean','price_0-181','price_181-282','price_282-415','price_415-635','price_635+'])
 
 
-    #buckets for minimum nights [1,2,3,4+]
-    #there are listing with minimum night above 30, i removed them
-    # counts = df['minimum_nights'].value_counts().sort_index()
-    # print(counts)
     minimum_col='minimum_nights'
     df['min_nights_1'] = (df[minimum_col] == 1).astype(int)
     df['min_nights_2'] = (df[minimum_col] == 2).astype(int)
@@ -185,7 +174,7 @@ def find_buckets_price(df):
         .str.replace(r'[^\d.]', '', regex=True)  # Remove all non-numeric chars except .
         .astype(float)
     )
-    df = df[df['price_clean'] <= 1000]
+    df = df[df['price_clean'] <= 5000]
     # Use CLEANED prices (reshape for K-Means)
     X = df['price_clean'].dropna().values.reshape(-1, 1)
 
@@ -308,19 +297,19 @@ def plot_dist(col):
     plt.show()
 
 
-def normalize_host_response_rate(df):
-    """
-    if above 90 percent then turn to 1 otherwise 0
-    :param df:
-    :return:
-    """
-    # Plot a histogram
-    df['percentage_clean'] = df['host_response_rate'].str.replace('%', '').astype(float)
-    mean_val = df['percentage_clean'].mean()
-    median_val = df['percentage_clean'].median()
-
-    print("Mean:", mean_val)
-    print("Median:", median_val)
+# def normalize_host_response_rate(df):
+#     """
+#     we didnt use this because the median is 100%
+#     if above 90 percent then turn to 1 otherwise 0
+#     :param df:
+#     :return:
+#     """
+#     df['percentage_clean'] = df['host_response_rate'].str.replace('%', '').astype(float)
+#     mean_val = df['percentage_clean'].mean()
+#     median_val = df['percentage_clean'].median()
+#
+#     print("Mean:", mean_val)
+#     print("Median:", median_val)
 
 
 def test_csv(df,result_cols):
@@ -401,8 +390,6 @@ def calculate_sparsity(df):
     :param df:
     :return:
     """
-
-
     # Total number of cells
     total_cells = df.shape[0] * df.shape[1]
 
@@ -413,8 +400,61 @@ def calculate_sparsity(df):
     sparsity = 1 - (total_ones / total_cells)
     print(f"Sparsity: {sparsity:.2%}")
 
+
+def merge_databases():
+    """
+    Merges multiple databases with the same structure while:
+    1. Ensuring unique IDs across all databases
+    2. Adding a source identifier column
+    3. Reporting any lost rows
+
+    Parameters:
+        database_list (list of DataFrames): List of databases to merge
+        source_names (list of str): Optional names for each source database
+
+    Returns:
+        merged_df (DataFrame): Combined database
+        report (dict): Merge statistics
+    """
+    # Initialize report
+    report = {
+        'total_rows_before': 0,
+        'total_rows_after': 0,
+        'rows_lost': 0,
+        'duplicate_ids': 0
+    }
+    source_names = ['Amsterdam','Barcelona','Paris']
+    database_list= [pd.read_csv('listings_ams.csv'),pd.read_csv('listings_clean_barcelona.csv'),pd.read_csv('listings_clean_paris.csv')]
+    # Add source identifiers
+    for i, df in enumerate(database_list):
+        source_id = source_names[i]
+        df['data_source'] = source_id
+        report['total_rows_before'] += len(df)
+
+    # Concatenate all databases
+    merged_df = pd.concat(database_list, ignore_index=False)
+
+    # Check for duplicate IDs
+    duplicate_mask = merged_df['id'].duplicated(keep=False)
+    report['duplicate_ids'] = duplicate_mask.sum()
+
+    # Remove duplicates (keep first occurrence)
+    merged_df = merged_df.drop_duplicates(subset=['id'], keep='first')
+
+    # Generate report
+
+    merged_df = merged_df.dropna(subset=['review_scores_rating'])
+
+    report['total_rows_after'] = len(merged_df)
+    report['rows_lost'] = report['total_rows_before'] - report['total_rows_after']
+    merged_df.to_csv('merged_database.csv', index=False)
+
+    return merged_df, report
+
 if __name__ == '__main__':
-    df =pd.read_csv('listings_clean.csv')
-    df=clean_bathrooms(df)
-    df=normalize_cols(df)
-    find_freq_itemsets(df)
+    # df =pd.read_csv('listings_clean.csv')
+    # df=clean_bathrooms(df)
+    # df=normalize_cols(df)
+    # find_freq_itemsets(df)
+    _,report=merge_databases()
+    print(report)
