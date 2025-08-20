@@ -33,7 +33,7 @@ def remove_rows(df,new_df_name):
     # Remove rows where any of these are missing
     df_clean = df.dropna(subset=required_columns)
     print(f"\nOriginal rows: {len(df)}, After cleaning: {len(df_clean)}")
-    f"{new_df_name} after cleaning: {len(df_clean)}"
-    df_clean.to_csv(f".csv", index=False)
-    print("Cleaned data saved to listings_clean.csv")
+    # f"{new_df_name}.csv"
+    df_clean.to_csv(f"{new_df_name}.csv", index=False)
+    print(f"Cleaned data saved to {new_df_name}.csv")
 
