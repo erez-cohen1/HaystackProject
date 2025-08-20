@@ -4,28 +4,17 @@ from matplotlib import pyplot as plt
 from sklearn.cluster import KMeans
 from mlxtend.frequent_patterns import apriori, association_rules
 
-def clean_bathrooms(df):
+import clean_data
+
+
+
+
+def add_private_bathrooms_col(df):
     """
-    take from bathroom text num of bathroom and +
     when entire apartment always private, when shared always shared except if written explicitly that private
     :param df:
-    :return: df with the coloumns: 'id', 'bathrooms', 'bathroom_private' (1 if yes)
+    :return:
     """
-    # Make a copy to avoid warnings
-    df = df.copy()
-
-    # print_rows_per_val(df['estimated_occupancy_l365d'])
-    # plot_dist(df['estimated_occupancy_l365d'])
-    # text to num
-    string_col = 'bathrooms_text'  # column with strings containing numbers
-    target_col = 'bathrooms'  # column that might be empty
-
-    df['extracted_number'] = df[string_col].str.extract(r'(\d+)')  # Note the r prefix
-
-    # Fill empty target_column values
-    df[target_col] = df[target_col].fillna(df['extracted_number'])
-
-    # new column indicating private bathroom or not
     private_col = 'bathroom_private'
     df[private_col] = (
             df['bathrooms_text'].str.contains('private', case=False, na=False) |
@@ -33,15 +22,11 @@ def clean_bathrooms(df):
     ).astype(int)
     df['bathrooms'] = pd.to_numeric(df['bathrooms'], errors='coerce')
 
-    # Return ALL columns including id and the new ones
-    result_cols = ['id', 'bathrooms', 'bathroom_private']
-    # result = df[result_cols]
-    result=df
-    return result
 
-def convert_bool_to_bin(df,old_col,new_col):
+def convert_bool_to_bin(df, old_col, new_col):
     df[new_col] = df[old_col].str.lower().map({'f': 0, 't': 1})
     return df
+
 
 def bucketize_column(df, col, bins, labels=None):
     """
@@ -452,6 +437,8 @@ def merge_databases():
     return merged_df, report
 
 if __name__ == '__main__':
+    # df = pd.read_csv('listings_clean.csv')
+    # clean_data.remove_rows(df,"name_test")
     # df =pd.read_csv('listings_clean.csv')
     # df=clean_bathrooms(df)
     # df=normalize_cols(df)

@@ -37,3 +37,23 @@ def remove_rows(df,new_df_name):
     df_clean.to_csv(f"{new_df_name}.csv", index=False)
     print(f"Cleaned data saved to {new_df_name}.csv")
 
+def convert_bathroom_text(df):
+    """
+    take from bathroom text num of bathroom and put in the bathrooms
+    :param df:
+    :return: df with the coloumns: 'id', 'bathrooms', 'bathroom_private' (1 if yes)
+    """
+    # Make a copy to avoid warnings
+    df = df.copy()
+
+    # print_rows_per_val(df['estimated_occupancy_l365d'])
+    # plot_dist(df['estimated_occupancy_l365d'])
+    # text to num
+    string_col = 'bathrooms_text'  # column with strings containing numbers
+    target_col = 'bathrooms'  # column that might be empty
+
+    df['extracted_number'] = df[string_col].str.extract(r'(\d+)')  # Note the r prefix
+
+    # Fill empty target_column values
+    df[target_col] = df[target_col].fillna(df['extracted_number'])
+    return df
