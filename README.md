@@ -35,6 +35,14 @@
 - on all high estimated_occupancy_l365d (not our calc)
 - on all high estimated_revenue_l365d (not our calc)
 
+### recommendation system:
+- hard-coded filter that removes listings that are different from the given listing by hard coded rules:
+    -number of rooms (1,2,3,4,5+), city, area in the city (center, downtown etc), room type, accomodates (+-1), number of beds (+-1)
+- delete: host_total_listings_count
+- not recommend: view_core, parking_core, outdoors_core, accessibility_core, attractions nearby
+  
+ 
+
 
 
 
