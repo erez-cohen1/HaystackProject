@@ -104,7 +104,7 @@ TAGS = {
 # LOAD DATA
 # ------------------------
 try:
-    df = pd.read_csv("listings.csv")
+    df = pd.read_csv("clean_merged_database.csv")
 except FileNotFoundError:
     print("❌ listings.csv not found")
     exit()
@@ -166,16 +166,22 @@ df["tags"] = df["description"].apply(tag_description)
 # ------------------------
 # SAVE TO CSV
 # ------------------------
-df[["description", "tags"]].to_csv("tagged_listings.csv", index=False, encoding="utf-8")
+df[["id", "description", "tags"]].to_csv("tagged_listings.csv", index=False, encoding="utf-8")
 print("Tagged data saved to tagged_listings.csv")
-
 
 # ------------------------
 # CONVERT TAGS COLUMN TO BINARY ONE-HOT ENCODING
 # ------------------------
+
+# df = pd.read_csv('tagged_listings.csv')
 one_hot_df = df["tags"].str.get_dummies(sep=", ")
-one_hot_df.to_csv("tagged_listings_one_hot.csv", index=False, encoding="utf-8")
-print("✅ One-hot encoded tags saved to tagged_listings_one_hot.csv")
+
+# Add the ID column to the one-hot encoded dataframe
+one_hot_df_with_id = pd.concat([df["id"], one_hot_df], axis=1)
+
+# Save with ID included
+one_hot_df_with_id.to_csv("tagged_listings_one_hot.csv", index=False, encoding="utf-8")
+print("✅ One-hot encoded tags with ID saved to tagged_listings_one_hot.csv")
 
 
 

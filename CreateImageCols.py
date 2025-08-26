@@ -117,7 +117,7 @@ def normalize_cols(df):
                   ] + bright_labels +unique_rooms
                  )
     result = df[result_cols]
-    result.to_csv('test.csv', index=False)
+    result.to_csv('image_analysis_norm.csv', index=False)
 
 def classify_resolution(res_tuple):
 
@@ -175,7 +175,8 @@ def bucketize_column(df, col, bins, labels=None):
     return df
 
 if __name__ == '__main__':
-    # df=pd.read_csv("listings_clean.csv").head(32)
-    # create_image_db(df)
-    df = pd.read_csv('image_analysis.csv')
+    # df=pd.read_csv("merged_database.csv")
+    # create_image_db(df,64)    # df = pd.read_csv('image_analysis.csv')
+    df=pd.read_csv("image_analysis_merged.csv")
     normalize_cols(df)
+
