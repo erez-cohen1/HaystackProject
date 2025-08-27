@@ -197,14 +197,14 @@ def create_binary_columns(df, final_groups):
     print("✓ Binary columns created successfully.")
     return df
 
-def normalize_amenities(df,output_file):
+def normalize_amenities(df,output_file='cleaned_norm_amenities.csv'):
     print("\nNormalizing Amenities...")
     # --- Initialization ---
     classifier = AmenityClassifier(CATEGORY_REPRESENTATIVES)
     brand_remover = FlairBrandRemover()
 
 
-    df = pd.read_csv('clean_merged_database.csv', engine='python', on_bad_lines='warn')
+    # df = pd.read_csv('clean_merged_database.csv', engine='python', on_bad_lines='warn')
     tqdm.pandas(desc="Parsing Amenities")
     df['parsed_amenities'] = df['amenities'].progress_apply(
         lambda s: ast.literal_eval(s.strip()) if isinstance(s, str) and s.strip().startswith('[') else []

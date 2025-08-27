@@ -40,7 +40,7 @@ def create_image_db(df, batch_size=8):
         results_df = results_df[cols]
 
         # Save to CSV (append if file exists)
-        results_df.to_csv("image_analysis_test.csv", mode='w', index=False)
+        results_df.to_csv("image_analysis_merged.csv", mode='w', index=False)
 
         end = time.time()
         print(f"Elapsed time: {end - start:.4f} seconds")
@@ -49,6 +49,7 @@ def create_image_db(df, batch_size=8):
         with open("failed_images.txt", "w") as f:
             f.write("\n".join(map(str, failed_images)))
     print(f"Processed {len(all_results)} images. Failed: {len(failed_images)}")
+
 
 
 def cluster_thresholds(feature_series, n_bins=3):
@@ -65,7 +66,7 @@ def cluster_thresholds(feature_series, n_bins=3):
 
     return [feature_series.min()] + thresholds + [feature_series.max()]
 
-def normalize_cols(df):
+def normalize_img_cols(df):
 
     #remove images below 0.7 confidence
     df = df[df['room_confidence'] >=0.7].copy()
@@ -118,6 +119,7 @@ def normalize_cols(df):
                  )
     result = df[result_cols]
     result.to_csv('image_analysis_norm.csv', index=False)
+    return result
 
 def classify_resolution(res_tuple):
 
@@ -173,10 +175,15 @@ def bucketize_column(df, col, bins, labels=None):
         else:
             df[label] = ((df[col] >= min_val) & (df[col] <= max_val)).astype(int)
     return df
+def create_normalize_image_db(df):
+    create_image_db(df,64)
+    df = pd.read_csv("image_analysis_merged.csv")
+    return normalize_img_cols(df)
 
 if __name__ == '__main__':
-    # df=pd.read_csv("merged_database.csv")
-    # create_image_db(df,64)    # df = pd.read_csv('image_analysis.csv')
-    df=pd.read_csv("image_analysis_merged.csv")
-    normalize_cols(df)
+    pass
+    # # df=pd.read_csv("merged_database.csv")
+    # # create_image_db(df,64)    # df = pd.read_csv('image_analysis.csv')
+    # df=pd.read_csv("image_analysis_merged.csv")
+    # normalize_image_cols(df)
 

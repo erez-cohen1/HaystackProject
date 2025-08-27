@@ -96,7 +96,7 @@ def calculate_sparsity(df):
 def create_merged_databases():
     """
     Merges multiple databases with the same structure while:
-    1. Ensuring unique IDs across all databases
+    1. Ensuring unique IDs across all databasesdf
     2. Adding a source identifier column
     3. Reporting any lost rows
 
@@ -165,21 +165,7 @@ def filter_columns_frequency(df, min_freq=0.05, max_freq=0.9):
 
     return df[columns_to_keep]
 
-def merge_dbs():
 
-    df1=pd.read_csv('normalized_freq_db.csv')
-    df2=pd.read_csv('image_analysis_norm.csv')
-    df3=pd.read_csv('normalized_amenities.csv')
-    df4=pd.read_csv('tagged_listings_one_hot.csv')
-    df4= df4.drop('none', axis=1)
-    print(len(df1)+len(df2)+len(df3)+len(df4))
-
-    merged1 = pd.merge(df1, df2, on="id", how="inner")
-    merged2 = pd.merge(df3, merged1, on="id", how="inner")
-    merged3 = pd.merge(df4, merged2, on="id", how="inner")
-
-    print(len(merged3))
-    merged3.to_csv('freq_item_db.csv', index=False)
 
 if __name__ == '__main__':
     # merge_dbs()

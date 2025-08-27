@@ -29,7 +29,15 @@ def add_private_bathrooms_col(df):
     return df
 
 def convert_bool_to_bin(df, old_col, new_col):
+    """
+    convert bool to binary + fill 0 where null
+    :param df:
+    :param old_col:
+    :param new_col:
+    :return:
+    """
     df[new_col] = df[old_col].str.lower().map({'f': 0, 't': 1})
+    df[new_col] = df[new_col].fillna(0)
     return df
 
 
@@ -58,14 +66,20 @@ def bucketize_column(df, col, bins, labels=None):
             df[label] = ((df[col] >= min_val) & (df[col] <= max_val)).astype(int)
     return df
 
-def normalize_cols(df):
+def normalize_regular_cols(df):
     """
     normalize df for finding freq itemsets
     :param df:
     :return:
     """
-    #should not be here, keeps the popular ones
-    df = df[df['review_scores_rating'] >=5].copy()
+
+    df = df.copy()
+
+
+    # TODO need to add - bucketize cities
+
+
+
 
     df = add_private_bathrooms_col(df)
 
@@ -148,9 +162,12 @@ def normalize_cols(df):
                   'bathrooms_0.5-1','bathrooms_1.5','bathrooms_2-2.5','bathrooms_3+',
                   'beds_0-1', 'beds_2', 'beds_3-4', 'beds_5+',
                   'price_0-181', 'price_181-282', 'price_282-415', 'price_415-635', 'price_635+',
-                  'min_nights_1', 'min_nights_2', 'min_nights_3', 'min_nights_4+'
+                  'min_nights_1', 'min_nights_2', 'min_nights_3', 'min_nights_4+',
+                  'review_scores_rating','estimated_occupancy_l365d','estimated_revenue_l365d'
                   ]
                  )
+    df=df[result_cols]
+    df.to_csv('normalized_reg_cols.csv',index=False)
     return df[result_cols]
 
 
@@ -161,12 +178,13 @@ def print_rows_per_val(col):
     print("\nMean:", col.mean())
 
 def find_buckets_price(df):
+
     df['price_clean'] = (
         df['price']
         .str.replace(r'[^\d.]', '', regex=True)  # Remove all non-numeric chars except .
         .astype(float)
     )
-    df = df[df['price_clean'] <= 5000]
+    df = df[df['price_clean'] <= 1000]
     # Use CLEANED prices (reshape for K-Means)
     X = df['price_clean'].dropna().values.reshape(-1, 1)
 
@@ -292,12 +310,10 @@ def plot_dist(col):
 
 
 
-def save_test_csv(df, result_cols):
-    """
-    for testing, saves csv called test.csv with specific columns
-    :param df:
-    :param result_cols:
-    :return:
-    """
-    result = df[result_cols]
-    result.to_csv('test.csv',index=False)
+
+
+
+if __name__ == '__main__':
+    df=pd.read_csv('clean_merged_database.csv')
+    df=normalize_regular_cols(df)
+    df.to_csv('test_norm.csv', index=False)
