@@ -81,11 +81,11 @@ def create_merged_city_databases():
         'duplicate_ids': 0
     }
     source_names = ['Amsterdam','Barcelona','Paris']
-    database_list= [pd.read_csv('listings_ams.csv'),pd.read_csv('listings_clean_barcelona.csv'),pd.read_csv('listings_clean_paris.csv')]
+    database_list= [pd.read_csv('listings_amsterdam.csv'),pd.read_csv('listings_clean_barcelona.csv'),pd.read_csv('listings_clean_paris.csv')]
     # Add source identifiers
     for i, df in enumerate(database_list):
         source_id = source_names[i]
-        df['data_source'] = source_id
+        df['city'] = source_id
         report['total_rows_before'] += len(df)
 
     # Concatenate all databases
@@ -112,6 +112,8 @@ def create_merged_city_databases():
 
 
 if __name__ == '__main__':
-    df=pd.read_csv('clean_merged_database.csv')
-    NormalizeRegularCols.normalize_regular_cols(df)
+    # df=create_merged_city_databases()
+    # df=clean_data.clean_db(df,'cleaned_merged_db')
+    # df=pd.read_csv('cleaned_merged_db.csv')
+    # NormalizeRegularCols.normalize_regular_cols(df)
     merge_final_dbs()
