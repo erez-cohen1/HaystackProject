@@ -54,7 +54,7 @@ def convert_bathroom_text(df):
     df[target_col] = df[target_col].fillna(df['extracted_number'])
     return df
 
-def clean_db(df,new_df_name):
+def clean_db(df,new_df_name='cleaned_database.csv'):
 
     orig_len=len(df)
     df = remove_rows(df)
@@ -63,3 +63,4 @@ def clean_db(df,new_df_name):
     print(f"\nOriginal rows: {orig_len}, After cleaning: {len(df)}")
     df.to_csv(f"{new_df_name}.csv", index=False)
     print(f"Cleaned data saved to {new_df_name}.csv")
+    return df
