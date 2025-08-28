@@ -1,5 +1,6 @@
 import pandas as pd
 
+import NormalizeDescriptions
 # import NormalizeDescriptions
 # import NormalizeImageCol
 import NormalizeRegularCols
@@ -114,6 +115,7 @@ def create_merged_city_databases():
 if __name__ == '__main__':
     # df=create_merged_city_databases()
     # df=clean_data.clean_db(df,'cleaned_merged_db')
-    # df=pd.read_csv('cleaned_merged_db.csv')
+    df=pd.read_csv('cleaned_merged_db.csv')
     # NormalizeRegularCols.normalize_regular_cols(df)
+    NormalizeDescriptions.normalize_descriptions(df)
     merge_final_dbs()
