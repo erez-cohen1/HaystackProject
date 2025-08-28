@@ -191,7 +191,7 @@ def create_binary_columns(df, final_groups):
                                 amenity_to_category_map.get(a)}
     )
     for category in tqdm(all_categories, desc="Creating Binary Columns"):
-        column_name = f"has_{category}"
+        column_name = f"amenity_{category}"
         df[column_name] = df['amenity_categories'].apply(lambda cat_set: 1 if category in cat_set else 0)
     df = df.drop(columns=['parsed_amenities', 'amenity_categories'])
     print("✓ Binary columns created successfully.")
@@ -226,7 +226,7 @@ def normalize_amenities(df,output_file='cleaned_norm_amenities.csv'):
 
     # --- Step 3: Display the final results ---
     print("\nTransformation complete. Here's a preview of the new columns:")
-    amenity_cols = sorted([col for col in transformed_df.columns if col.startswith('has_')])
+    amenity_cols = sorted([col for col in transformed_df.columns if col.startswith('amenity_')])
     display_cols = ['id', 'name'] + amenity_cols
     if len(display_cols) > 20:
         print(f"(Showing a subset of the {len(amenity_cols)} new amenity columns)")
@@ -239,47 +239,47 @@ def normalize_amenities(df,output_file='cleaned_norm_amenities.csv'):
     # name, ext = os.path.splitext(base_name)
     # output_filename = f"{name}_with_amenity_cols{ext}"
     result_cols = ['id',
-                   'has_accessibility_core',
-                   'has_air_conditioner_core',
-                   'has_air_conditioner_extra',
-                   'has_attractions_nearby_core',
-                   'has_bedroom_core',
-                   'has_children_care_core',
-                   'has_children_care_extra',
-                   'has_cleaning_core',
-                   'has_cleaning_extra',
-                   'has_coffee_maker_core',
-                   'has_cooking_basics_core',
-                   'has_entertainment_core',
-                   'has_entertainment_extra',
-                   'has_exercise_core',
-                   'has_exercise_extra',
-                   'has_heater_core',
-                   'has_heater_extra',
-                   'has_hospitality_core',
-                   'has_hospitality_extra',
-                   'has_hygiene_core',
-                   'has_hygiene_extra',
-                   'has_internet_core',
-                   'has_kitchen_core',
-                   'has_kitchen_extra',
-                   'has_laundry_core',
-                   'has_laundry_extra',
-                   'has_outdoors_core',
-                   'has_outdoors_extra',
-                   'has_parking_core',
-                   'has_parking_extra',
-                   'has_pets_allowed',
-                   'has_safety_core',
-                   'has_safety_extra',
-                   'has_smoking_allowed',
-                   'has_sound_system_core',
-                   'has_storage_core',
-                   'has_storage_extra',
-                   'has_transport_core',
-                   'has_transport_extra',
-                   'has_view_core',
-                   'has_wellness_core']
+                   'amenity_accessibility_core',
+                   'amenity_air_conditioner_core',
+                   'amenity_air_conditioner_extra',
+                   'amenity_attractions_nearby_core',
+                   'amenity_bedroom_core',
+                   'amenity_children_care_core',
+                   'amenity_children_care_extra',
+                   'amenity_cleaning_core',
+                   'amenity_cleaning_extra',
+                   'amenity_coffee_maker_core',
+                   'amenity_cooking_basics_core',
+                   'amenity_entertainment_core',
+                   'amenity_entertainment_extra',
+                   'amenity_exercise_core',
+                   'amenity_exercise_extra',
+                   'amenity_heater_core',
+                   'amenity_heater_extra',
+                   'amenity_hospitality_core',
+                   'amenity_hospitality_extra',
+                   'amenity_hygiene_core',
+                   'amenity_hygiene_extra',
+                   'amenity_internet_core',
+                   'amenity_kitchen_core',
+                   'amenity_kitchen_extra',
+                   'amenity_laundry_core',
+                   'amenity_laundry_extra',
+                   'amenity_outdoors_core',
+                   'amenity_outdoors_extra',
+                   'amenity_parking_core',
+                   'amenity_parking_extra',
+                   'amenity_pets_allowed',
+                   'amenity_safety_core',
+                   'amenity_safety_extra',
+                   'amenity_smoking_allowed',
+                   'amenity_sound_system_core',
+                   'amenity_storage_core',
+                   'amenity_storage_extra',
+                   'amenity_transport_core',
+                   'amenity_transport_extra',
+                   'amenity_view_core',
+                   'amenity_wellness_core']
 
     print(f"\nSaving transformed DataFrame to: {output_file}")
     # Use index=False to avoid writing the DataFrame index as a column
