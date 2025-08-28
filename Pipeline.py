@@ -1,5 +1,6 @@
 import pandas as pd
 
+import FrequentItemSet
 import NormalizeDescriptions
 # import NormalizeDescriptions
 # import NormalizeImageCol
@@ -57,6 +58,9 @@ def merge_final_dbs():
     merged3 = pd.merge(df4, merged2, on="id", how="inner")
 
     print(len(merged3))
+    #quick fix, i found and fixed the code where it was
+    merged3.drop('extracted_number', axis=1, inplace=True)
+
     merged3.to_csv('final_norm_database.csv', index=False)
 
 def create_merged_city_databases():
@@ -115,7 +119,6 @@ def create_merged_city_databases():
 if __name__ == '__main__':
     # df=create_merged_city_databases()
     # df=clean_data.clean_db(df,'cleaned_merged_db')
-    df=pd.read_csv('cleaned_merged_db.csv')
-    # NormalizeRegularCols.normalize_regular_cols(df)
-    NormalizeDescriptions.normalize_descriptions(df)
     merge_final_dbs()
+    df=pd.read_csv('final_norm_database.csv')
+    FrequentItemSet.find_freq_itemsets_by_diff_popularity(df)

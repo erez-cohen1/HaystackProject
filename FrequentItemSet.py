@@ -15,21 +15,26 @@ def find_freq_itemsets_by_diff_popularity(df):
     df=normalize_db_freq(df)
 
     # by rating review
+    print("Finding frequent itemsets according to rating...")
+    print('#'*50)
     threshold_rating = df['review_scores_rating'].quantile(0.9)
     df_rating=df[df['review_scores_rating'] >= threshold_rating]
-    df_rating.drop(columns=["estimated_occupancy_l365d","review_scores_rating","estimated_revenue_l365d"])
+    df_rating=df_rating.drop(columns=["estimated_occupancy_l365d","review_scores_rating","estimated_revenue_l365d"])
     find_freq_itemsets(df_rating)
-
     # by estimated occupancy
+    print("Finding frequent itemsets according to estimated occupancy...")
+    print('#'*50)
     threshold_est_occ = df['estimated_occupancy_l365d'].quantile(0.9)
     df_est_occ = df[df['estimated_occupancy_l365d'] >= threshold_est_occ]
-    df_est_occ.drop(columns=["estimated_occupancy_l365d", "review_scores_rating", "estimated_revenue_l365d"])
+    df_est_occ=df_est_occ.drop(columns=["estimated_occupancy_l365d", "review_scores_rating", "estimated_revenue_l365d"])
     find_freq_itemsets(df_est_occ)
 
     # by estimated revenue
+    print("Finding frequent itemsets according to estimated revenue...")
+    print('#'*50)
     threshold_est_rev = df['estimated_revenue_l365d'].quantile(0.9)
     df_est_rev = df[df['estimated_revenue_l365d'] >= threshold_est_rev]
-    df_est_rev.drop(columns=["estimated_occupancy_l365d", "review_scores_rating", "estimated_revenue_l365d"])
+    df_est_rev=df_est_rev.drop(columns=["estimated_occupancy_l365d", "review_scores_rating", "estimated_revenue_l365d"])
     find_freq_itemsets(df_est_rev)
 
 
@@ -43,7 +48,7 @@ def normalize_db_freq(df):
     df = filter_columns_frequency(df)
 
     return df
-def find_freq_itemsets(df,min_supp=0.2):
+def find_freq_itemsets(df,min_supp=0.25):
     """
     min supp should be changed according to the dataframe
     :param df:
@@ -51,13 +56,17 @@ def find_freq_itemsets(df,min_supp=0.2):
     :return:
     """
     df = df.copy()
+    # Identify non-binary columns
 
-    #normalize for freq_itemset
-    df=normalize_db_freq(df)
+    # non_binary_cols = [col for col in df.columns
+    #                    if not df[col].dropna().isin([0, 1, True, False]).all()]
+    #
+    # print("Columns with invalid values:", non_binary_cols)
+
 
     #find it
     frequent_itemsets = apriori(df, min_support=min_supp, use_colnames=True,low_memory=True)
-    print(f"Found {len(frequent_itemsets)} frequent itemsets")
+    print(f"Found {len(frequent_itemsets)} frequent itemsets with min support {min_supp}")
 
     find_top_associations(frequent_itemsets)
     calculate_sparsity(df)
@@ -71,8 +80,8 @@ def find_freq_itemsets(df,min_supp=0.2):
     large_itemsets = frequent_itemsets[frequent_itemsets['itemsets'].apply(lambda x: len(x) > 6)]
 
     # Get top 10 by support (or any metric you choose)
-    top10_large = large_itemsets.sort_values(by='support', ascending=False).head(10)
-
+    top10_large = large_itemsets.sort_values(by='support', ascending=False).head(30)
+    print("Frequent itemsets:")
     print(top10_large)
 
 
@@ -84,9 +93,17 @@ def find_top_associations(frequent_itemsets,num_rules=10):
         (rules['lift'] > 1)
         ].copy()
     meaningful_rules = meaningful_rules.sort_values(by='lift', ascending=False).head(num_rules)
-    # Make sure all columns are fully visible
-    # Print each rule in A -> B format with metrics
-    for _, row in meaningful_rules.iterrows():
+    # print_association_rules(meaningful_rules)
+    find_specific_associations(meaningful_rules,'has_bedroom_core')
+
+def find_specific_associations(rules,target):
+    filtered_rules = rules[rules['antecedents'].apply(lambda x: target in x)]
+    if len(filtered_rules) ==0:
+        print("No associations found")
+    print_association_rules(filtered_rules)
+def print_association_rules(rules):
+    print("Association rules:")
+    for _, row in rules.iterrows():
         antecedent = ', '.join(list(row['antecedents']))
         consequent = ', '.join(list(row['consequents']))
         print(f"({antecedent}) → ({consequent})| "
@@ -95,7 +112,6 @@ def find_top_associations(frequent_itemsets,num_rules=10):
               f"lift={row['lift']:.3f}, "
               f"certainty={row.get('certainty', 0):.3f}, "
               f"kulczynski={row.get('kulczynski', 0):.3f}")
-
 def calculate_sparsity(df):
     """
     from GPT:
@@ -134,6 +150,9 @@ def filter_columns_frequency(df, min_freq=0.05, max_freq=0.9):
     keep_mask = (column_frequency >= min_freq) & (column_frequency <= max_freq)
     columns_to_keep = column_frequency[keep_mask].index
     columns_to_remove = column_frequency[~keep_mask].index
+
+    columns_to_keep = list(set(columns_to_keep) | {'review_scores_rating', 'estimated_occupancy_l365d',
+                                                   'estimated_revenue_l365d'})
 
     print(f"Removing {len(columns_to_remove)} columns:")
     for col in columns_to_remove:
