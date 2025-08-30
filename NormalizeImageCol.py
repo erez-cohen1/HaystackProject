@@ -83,25 +83,25 @@ def normalize_img_cols(df):
 
 
     #mood to 2 cols warm and cool
-    df['image_warm'] = (df['mood'] == 'warm').astype(int)
-    df['image_cool'] = (df['mood'] == 'cool').astype(int)
+    df['warm'] = (df['mood'] == 'warm').astype(int)
+    df['cool'] = (df['mood'] == 'cool').astype(int)
 
     #room types
     room_labels = ["bedroom", "kitchen", "bathroom", "living room", "dining room", "balcony","not a room",
                    "exterior of house","view from window","boat"]
     # Create a mapping dictionary
     room_mapping = {
-        "not a room": "not_a_room",
-        "exterior of house": "not_a_room",
-        "view from window": "not_a_room",
-        "boat": "not_a_room"
+        "not a room": "not a room",
+        "exterior of house": "not a room",
+        "view from window": "not a room",
+        "boat": "not a room"
     }
 
     # Apply the mapping to your DataFrame
     df['room_type_consolidated'] = df['room_type'].replace(room_mapping)
 
     # Get unique room types after consolidation
-    unique_rooms = ["bedroom", "kitchen", "bathroom", "living_room", "dining_room", "balcony", "not_a_room"]
+    unique_rooms = ["bedroom", "kitchen", "bathroom", "living room", "dining room", "balcony", "not a room"]
 
     # Create binary columns
     for room in unique_rooms:
@@ -114,10 +114,14 @@ def normalize_img_cols(df):
     df['mid_res'] = (df['res_bin'] == 'mid_res').astype(int)
     df['high_res'] = (df['res_bin'] == 'high_res').astype(int)
 
-    result_cols=(['id','image_warm','image_cool','low_res','mid_res','high_res'
+    result_cols=(['id','warm','cool','low_res','mid_res','high_res'
                   ] + bright_labels +unique_rooms
                  )
     result = df[result_cols]
+    result.columns = [
+        f'img_{col.replace(" ", "_")}' if col != 'id' else col
+        for col in result.columns
+    ]
     result.to_csv('image_analysis_norm.csv', index=False)
     return result
 
@@ -181,9 +185,9 @@ def create_normalize_image_db(df):
     return normalize_img_cols(df)
 
 if __name__ == '__main__':
-    pass
+
     # # df=pd.read_csv("merged_database.csv")
     # # create_image_db(df,64)    # df = pd.read_csv('image_analysis.csv')
-    # df=pd.read_csv("image_analysis_merged.csv")
-    # normalize_image_cols(df)
+    df=pd.read_csv("image_analysis_merged.csv")
+    normalize_img_cols(df)
 

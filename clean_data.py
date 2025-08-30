@@ -52,9 +52,10 @@ def convert_bathroom_text(df):
 
     # Fill empty target_column values
     df[target_col] = df[target_col].fillna(df['extracted_number'])
+    df.drop('extracted_number', axis=1, inplace=True)
     return df
 
-def clean_db(df,new_df_name='cleaned_database.csv'):
+def clean_db(df,new_df_name='cleaned_database'):
 
     orig_len=len(df)
     df = remove_rows(df)

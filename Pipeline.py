@@ -1,5 +1,7 @@
 import pandas as pd
 
+import FrequentItemSet
+import NormalizeDescriptions
 # import NormalizeDescriptions
 # import NormalizeImageCol
 import NormalizeRegularCols
@@ -56,6 +58,9 @@ def merge_final_dbs():
     merged3 = pd.merge(df4, merged2, on="id", how="inner")
 
     print(len(merged3))
+    #quick fix, i found and fixed the code where it was
+    merged3.drop('extracted_number', axis=1, inplace=True)
+
     merged3.to_csv('final_norm_database.csv', index=False)
 
 def create_merged_city_databases():
@@ -81,11 +86,11 @@ def create_merged_city_databases():
         'duplicate_ids': 0
     }
     source_names = ['Amsterdam','Barcelona','Paris']
-    database_list= [pd.read_csv('listings_ams.csv'),pd.read_csv('listings_clean_barcelona.csv'),pd.read_csv('listings_clean_paris.csv')]
+    database_list= [pd.read_csv('listings_amsterdam.csv'),pd.read_csv('listings_clean_barcelona.csv'),pd.read_csv('listings_clean_paris.csv')]
     # Add source identifiers
     for i, df in enumerate(database_list):
         source_id = source_names[i]
-        df['data_source'] = source_id
+        df['city'] = source_id
         report['total_rows_before'] += len(df)
 
     # Concatenate all databases
@@ -112,6 +117,8 @@ def create_merged_city_databases():
 
 
 if __name__ == '__main__':
-    df=pd.read_csv('clean_merged_database.csv')
-    NormalizeRegularCols.normalize_regular_cols(df)
+    # df=create_merged_city_databases()
+    # df=clean_data.clean_db(df,'cleaned_merged_db')
     merge_final_dbs()
+    df=pd.read_csv('final_norm_database.csv')
+    FrequentItemSet.find_freq_itemsets_by_diff_popularity(df)

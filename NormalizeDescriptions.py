@@ -9,93 +9,93 @@ USE_SEMANTIC_TAGGING = True
 SEMANTIC_SIMILARITY_THRESHOLD = 0.4
 MODEL_NAME = "all-MiniLM-L6-v2"       # Fast & accurate small model
 TAGS = {
-    "Transport": [
+    "Desc_Transport": [
         "bus", "metro", "subway", "tube", "station", "train", "tram", "airport", "public transport",
         "direct connection", "easy access",
         "well-connected", "scooter", "bike path"
     ],
-    "Attractions": [
+    "Desc_Attractions": [
         "museum", "gallery", "theatre", "zoo", "park", "beach", "lake", "river", "bars", "restaurants",
         "cafe", "nightlife", "entertainment", "shopping", "market", "historic", "landmarks", "city center",
         "downtown", "convention center"
     ],
-    "Neighborhood": [
+    "Desc_Neighborhood": [
         "quiet", "safe", "lively", "central", "trendy", "residential", "popular", "peaceful", "charming",
         "vibrant", "up-and-coming", "family-friendly", "student area", "historic district", "a short distance from",
         "walking distance", "minutes away", "steps away", "close to"
     ],
-    "Property_Type": [
+    "Desc_Property_Type": [
         "apartment", "condo", "house", "villa", "loft", "studio", "bungalow", "cabin", "townhouse",
         "guesthouse", "private room", "entire place"
     ],
-    "Space_Layout": [
+    "Desc_Space_Layout": [
         "large", "spacious", "small", "compact", "cozy", "open plan", "floor", "private entrance",
         "ensuite", "private bathroom", "shared bathroom"
     ],
-    "Capacity": [
+    "Desc_Capacity": [
         "sleeps", "capacity", "people", "guests", "family", "couple", "solo", "group", "extra bed",
         "sofa bed"
     ],
-    "Outdoor_Features": [
+    "Desc_Outdoor_Features": [
         "balcony", "terrace", "garden", "patio", "pool", "private pool", "shared pool", "bbq",
         "barbecue", "rooftop", "backyard", "deck", "jacuzzi"
     ],
-    "View": [
+    "Desc_View": [
         "view", "sea view", "ocean view", "city view", "skyline", "mountain view", "garden view",
         "panoramic", "breathtaking views"
     ],
-    "Kitchen": [
+    "Desc_Kitchen": [
         "kitchen", "kitchenette", "fridge", "freezer", "stove", "oven", "microwave", "dishwasher",
         "utensils", "cookware", "kettle", "coffee machine", "espresso", "Nespresso", "toaster",
         "blender", "fully equipped"
     ],
-    "Living_room": [
+    "Desc_Living_room": [
         "couch", "sofa","table", "chair", "desk", "workspace", "dedicated workspace"
     ],
-    "Entertainment": [
+    "Desc_Entertainment": [
       "tv", "smart tv", "netflix", "hbo", "cable", "projector", "speakers", "sound system", "books", "games"
     ],
-    "Connectivity": [
+    "Desc_Connectivity": [
         "wifi", "internet", "high-speed", "fiber optic"
     ],
-    "Climate": [
+    "Desc_Climate": [
         "air conditioning", "ac", "heating","central heating", "fireplace", "fan"
     ],
-    "Bedroom": [
+    "Desc_Bedroom": [
         "bedroom", "bed", "king bed", "queen bed", "double bed", "single bed", "bunk bed", "crib", "sheets", "linen"
 
     ],
-    "Bath": [
+    "Desc_Bath": [
         "shower", "bathtub", "towels", "essentials", "shampoo", "soap", "hairdryer", "hot water"
     ],
-    "Safety_Accessibility": [
+    "Desc_Safety_Accessibility": [
         "first aid kit", "fire extinguisher", "smoke detector", "carbon monoxide detector", "elevator",
         "lift", "wheelchair accessible", "step-free access", "ground floor"
     ],
-    "Atmosphere": [
+    "Desc_Atmosphere": [
         "cozy", "homey", "comfortable", "relaxing", "inviting", "warm", "charming", "modern", "stylish",
         "luxury", "designer", "rustic", "bohemian", "vintage", "minimalist", "newly renovated",
         "brand new", "updated", "classic"
     ],
-    "Cleanliness": [
+    "Desc_Cleanliness": [
         "clean", "tidy", "spotless", "well-maintained", "fresh", "hygiene"
     ],
-    "Check_in": [
+    "Desc_Check_in": [
         "check-in", "check-out", "flexible", "self check-in", "lockbox", "keypad", "smart lock",
         "24-hour check-in"
     ],
-    "Host": [
+    "Desc_Host": [
         "host lives here", "host on site", "available", "recommendations", "local tips", "superhost"
     ],
-    "Rules": [
+    "Desc_Rules": [
         "smoking", "no smoking", "pets", "pets allowed", "no pets", "parties", "no parties", "events",
         "rules", "quiet hours"
     ],
-    "Suitability": [
+    "Desc_Suitability": [
         "family-friendly", "kid-friendly", "business travel", "remote work", "couples",
         "romantic getaway", "long-term stays"
     ],
-    "Fees": [
+    "Desc_Fees": [
         "deposit", "fee", "cleaning fee", "extra guest fee"
     ]
 }
