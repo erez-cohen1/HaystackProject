@@ -216,54 +216,24 @@ def recommend_bucket_features(neighbors, test_listing, bucket_prefixes):
 
 def recommend_features(train_df, test_listing, feature_cols, top_k=15, min_rating=None,
                        rating_col="review_scores_rating", add_threshold=0.9, remove_threshold=0.1):
-    # Step 1: Filter comparable listings in train
-    successful = filter_similar_pool(train_df, test_listing)
-
-    # Step 1.5: Apply rating filter if provided
-    if min_rating is not None and rating_col in successful.columns:
-        successful = successful[successful[rating_col] >= min_rating]
-
-    # Remove rating column after filtering
-    if rating_col in successful.columns:
-        successful = successful.drop(columns=[rating_col])
-    if rating_col in test_listing.index:
-        test_listing = test_listing.drop(rating_col)
+    successful, test_listing = filter_successful_comparable_listings(min_rating, rating_col, test_listing, train_df)
 
     if successful.empty:
         return {"message": "No similar listings found after filtering."}
 
-    # Step 2: Keep all numeric columns for similarity (including excluded)
-    numeric_features = [
-        c for c in feature_cols
-        if np.issubdtype(train_df[c].dtype, np.number) and c != rating_col
-    ]
-
-    # Step 3: Features for recommendation (exclude excluded features)
-    filtered_features = [c for c in numeric_features if c not in EXCLUDE_FROM_RECOMMEND]
-
-    # Step 4: Scale features using train only (all numeric)
-    X_train, scaler = preprocess_features(train_df, numeric_features)
-    successful = successful.copy()
-    numeric_features = [col for col in numeric_features if col in successful.columns]
-    successful[numeric_features] = successful[numeric_features].fillna(0)
-    X_success = scaler.transform(successful[numeric_features])
-    X_test_listing, _ = preprocess_features(pd.DataFrame([test_listing]), numeric_features, scaler)
-
+    X_success, X_test_listing, filtered_features, successful = preprocess_successful_comparable_listings(feature_cols,
+                                                                                                         rating_col,
+                                                                                                         successful,
+                                                                                                         test_listing,
+                                                                                                         train_df)
     # Step 5: Compute similarity
-    sim_scores = cosine_similarity(X_test_listing, X_success).flatten()
-    top_idx = np.argsort(sim_scores)[-top_k:]
-    neighbors = successful.iloc[top_idx]
-
-    similar_features = neighbors[filtered_features].mean()
-    current_features = test_listing[filtered_features]
+    current_features, neighbors, similar_features = find_knn_from_successful(X_success, X_test_listing,
+                                                                             filtered_features, successful,
+                                                                             test_listing, top_k)
 
     # Step 6: Recommendations
-    recommendations = {}
-    for col in tqdm(filtered_features, desc="Analyzing features"):
-        if current_features[col] < 0.5 and similar_features[col] >= add_threshold:
-            recommendations[col] = "Consider ADDING (very common in successful listings)"
-        elif current_features[col] > 0.5 and similar_features[col] <= remove_threshold:
-            recommendations[col] = "Consider REMOVING (rare in successful listings)"
+    recommendations = find_recommendations(add_threshold, current_features, filtered_features, remove_threshold,
+                                           similar_features)
 
     # Step 7: Feature Agreement Analysis
     agreements = compute_feature_agreements(neighbors, test_listing, filtered_features)
@@ -274,6 +244,8 @@ def recommend_features(train_df, test_listing, feature_cols, top_k=15, min_ratin
     print("\n=== Bucket Recommendations ===")
     for prefix, rec in bucket_recs.items():
         print(f"{prefix}: {rec}")
+    for feature, msg in recommendations.items():
+        print(f"{feature}: {msg}")
     return {
         "recommendations": recommendations,
         "agreements": agreements,
@@ -281,11 +253,62 @@ def recommend_features(train_df, test_listing, feature_cols, top_k=15, min_ratin
     }
 
 
+def find_recommendations(add_threshold, current_features, filtered_features, remove_threshold, similar_features):
+    recommendations = {}
+    for col in tqdm(filtered_features, desc="Analyzing features"):
+        if current_features[col] < 0.5 and similar_features[col] >= add_threshold:
+            recommendations[col] = "Consider ADDING (very common in successful listings)"
+        elif current_features[col] > 0.5 and similar_features[col] <= remove_threshold:
+            recommendations[col] = "Consider REMOVING (rare in successful listings)"
+    return recommendations
+
+
+def find_knn_from_successful(X_success, X_test_listing, filtered_features, successful, test_listing, top_k):
+    sim_scores = cosine_similarity(X_test_listing, X_success).flatten()
+    top_idx = np.argsort(sim_scores)[-top_k:]
+    neighbors = successful.iloc[top_idx]
+    similar_features = neighbors[filtered_features].mean()
+    current_features = test_listing[filtered_features]
+    return current_features, neighbors, similar_features
+
+
+def preprocess_successful_comparable_listings(feature_cols, rating_col, successful, test_listing, train_df):
+    # Step 2: Keep all numeric columns for similarity (including excluded)
+    numeric_features = [
+        c for c in feature_cols
+        if np.issubdtype(train_df[c].dtype, np.number) and c != rating_col
+    ]
+    # Step 3: Features for recommendation (exclude excluded features)
+    filtered_features = [c for c in numeric_features if c not in EXCLUDE_FROM_RECOMMEND]
+    # Step 4: Scale features using train only (all numeric)
+    X_train, scaler = preprocess_features(train_df, numeric_features)
+    successful = successful.copy()
+    numeric_features = [col for col in numeric_features if col in successful.columns]
+    successful[numeric_features] = successful[numeric_features].fillna(0)
+    X_success = scaler.transform(successful[numeric_features])
+    X_test_listing, _ = preprocess_features(pd.DataFrame([test_listing]), numeric_features, scaler)
+    return X_success, X_test_listing, filtered_features, successful
+
+
+def filter_successful_comparable_listings(min_rating, rating_col, test_listing, train_df):
+    # Step 1: Filter comparable listings in train
+    successful = filter_similar_pool(train_df, test_listing)
+    # Step 1.5: Apply rating filter if provided
+    if min_rating is not None and rating_col in successful.columns:
+        successful = successful[successful[rating_col] >= min_rating]
+    # Remove rating column after filtering
+    if rating_col in successful.columns:
+        successful = successful.drop(columns=[rating_col])
+    if rating_col in test_listing.index:
+        test_listing = test_listing.drop(rating_col)
+    return successful, test_listing
+
+
 # -----------------------------
 # Example Pipeline
 # -----------------------------
 def run_pipeline(csv_path, test_size=0.2, random_state=40, min_rating=4.9, top_k=20,
-                 add_threshold=0.80, remove_threshold=0.20):
+                 add_threshold=0.80, remove_threshold=0.20, test_rating_threshold=3.0):
     # Load dataset
     df = pd.read_csv(csv_path)
 
@@ -300,13 +323,20 @@ def run_pipeline(csv_path, test_size=0.2, random_state=40, min_rating=4.9, top_k
     # Split into train/test
     train_df, test_df = train_test_split(df, test_size=test_size, random_state=random_state)
 
-    # Pick a random listing from test
-    # Pick a random listing from test
-    test_listing = test_df.sample(1, random_state=random_state).iloc[0]
+    # Keep only “unsuccessful” listings in test set
+    if "review_scores_rating" in test_df.columns:
+        low_rating_test_df = test_df[test_df["review_scores_rating"] <= test_rating_threshold]
+        if low_rating_test_df.empty:
+            print(f"No test listings below rating threshold {test_rating_threshold}. Using random test listing.")
+            test_listing = test_df.sample(1, random_state=random_state).iloc[0]
+        else:
+            test_listing = low_rating_test_df.sample(1, random_state=random_state).iloc[0]
+    else:
+        test_listing = test_df.sample(1, random_state=random_state).iloc[0]
 
     # Remove rating column from the test listing
     if "review_scores_rating" in test_listing.index:
-        print("test listing rating", test_listing["review_scores_rating"])
+        print("test listing rating ", test_listing["review_scores_rating"])
         test_listing = test_listing.drop("review_scores_rating")
 
     # Generate recommendations with rating filter
@@ -318,6 +348,7 @@ def run_pipeline(csv_path, test_size=0.2, random_state=40, min_rating=4.9, top_k
     return recs
 
 
+
 if __name__ == '__main__':
     path = r"C:\Users\hodos\Documents\Uni\Uni-Year-3\Semester2\Data\final_norm_database.csv"
-    run_pipeline(path, min_rating=4.98, top_k=50)  # Example: only keep listings with rating >= 80
+    run_pipeline(path, min_rating=4.98, top_k=25, remove_threshold= 30, add_threshold=70)  # Example: only keep listings with rating >= 80
