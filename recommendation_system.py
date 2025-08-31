@@ -6,6 +6,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 import matplotlib
 
+AMENITY_PREFIX = "has"
+
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -16,12 +18,15 @@ from pandas.plotting import parallel_coordinates
 # -----------------------------
 IMMUTABLE_COLS = [
     "bedrooms_group", "city", "area", "room_type", "accommodates_group",
-    "beds_group", "Amsterdam", "Barcelona", "Paris"
+    "beds_group", "Amsterdam", "Barcelona", "Paris", "accommodates_1",
+    "accommodates_2", "accommodates_3-4", "accommodates_5-6", "accommodates_7+",
+    "bathrooms_0.5-1",	"bathrooms_1.5", "bathrooms_2-2.5", "bathrooms_3+", "beds_0-1", "beds_2", "beds_3-4", "beds_5+",
+    "entire_house",	"shared_room_in_house",	"hotel/hostel_room"
 ]  # cannot change
 
 EXCLUDE_FROM_RECOMMEND = [
-    "has_view_core", "has_parking_core", "has_outdoors_core",
-    "has_accessibility_core", "has_attractions_nearby_core"
+    AMENITY_PREFIX+"_view_core", AMENITY_PREFIX+"_parking_core", AMENITY_PREFIX+"_outdoors_core",
+    AMENITY_PREFIX+"_accessibility_core", AMENITY_PREFIX+"_attractions_nearby_core"
 ]
 
 REMOVE_COLS = [
@@ -29,107 +34,8 @@ REMOVE_COLS = [
     "total_host_3-5", "total_host_6-20", "total_host_21+"
 ]
 
-BUCKET_PREFIXES = ["beds_", "bathrooms", "price_", "accommodates_", "min_nights_"]
 
-
-# -----------------------------
-# Visualization Functions
-# -----------------------------
-
-def plot_feature_bar(test_listing, successful, features, top_k=None):
-    """
-    Bar plot showing % of successful listings with each feature, overlaying the test listing value
-    """
-    if top_k is not None:
-        successful = successful.iloc[top_k]
-    feature_percent = successful[features].mean() * 100
-    test_values = test_listing[features]
-
-    plt.figure(figsize=(12, 6))
-    sns.barplot(x=feature_percent.index, y=feature_percent.values, color='skyblue')
-    plt.scatter(range(len(features)), test_values * 100, color='red', s=100, label="Test Listing")
-    plt.xticks(rotation=90)
-    plt.ylabel("% of successful listings with feature")
-    plt.title("Feature comparison: Successful listings vs Test listing")
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_dot_lollipop(test_listing, successful, features, top_k=None):
-    """
-    Dot plot (lollipop style) showing % of successful listings with feature
-    """
-    if top_k is not None:
-        successful = successful.iloc[top_k]
-    feature_percent = successful[features].mean() * 100
-    test_values = test_listing[features]
-
-    plt.figure(figsize=(12, 6))
-    plt.hlines(y=feature_percent.index, xmin=0, xmax=feature_percent.values, color='skyblue', lw=4)
-    plt.scatter(feature_percent.values, feature_percent.index, color='skyblue', s=200)
-    for i, f in enumerate(features):
-        if test_values[f] > 0.5:
-            plt.scatter(100, f, color='red', marker='X', s=100)
-    plt.xlabel("% of successful listings with feature")
-    plt.title("Lollipop plot: Test listing vs successful listings")
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_recommendation_map(test_listing, successful, features, add_threshold=0.9, remove_threshold=0.1, top_k=None):
-    """
-    Color-coded map showing which features should be added, removed, or kept
-    """
-    if top_k is not None:
-        successful = successful.iloc[top_k]
-    feature_percent = successful[features].mean()
-    test_values = test_listing[features]
-
-    colors = []
-    for f in features:
-        if test_values[f] < 0.5 and feature_percent[f] >= add_threshold:
-            colors.append("blue")  # add
-        elif test_values[f] > 0.5 and feature_percent[f] <= remove_threshold:
-            colors.append("red")  # remove
-        else:
-            colors.append("gray")  # keep
-
-    plt.figure(figsize=(12, 1))
-    plt.bar(range(len(features)), [1] * len(features), color=colors)
-    plt.xticks(range(len(features)), features, rotation=90)
-    plt.yticks([])
-    plt.title("Recommendation Map (Blue=Add, Red=Remove, Gray=Keep)")
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_parallel_coordinates(test_listing, successful, features, top_k=10):
-    """
-    Parallel coordinates plot: each line = a listing, test listing highlighted
-    """
-    top_successful = successful.iloc[:top_k].copy()
-    top_successful["type"] = "successful"
-    test_df = pd.DataFrame([test_listing[features]])
-    test_df["type"] = "test"
-
-    combined = pd.concat([top_successful[features + ["type"]], test_df], ignore_index=True)
-    plt.figure(figsize=(14, 6))
-    parallel_coordinates(combined, "type", color=["skyblue", "red"], alpha=0.7)
-    plt.xticks(rotation=90)
-    plt.ylabel("Feature value (0/1)")
-    plt.title("Parallel Coordinates: Test vs Successful Listings")
-    plt.tight_layout()
-    plt.show()
-
-
-def visualize(test_listing, successful, features, top_k=10,
-              add_threshold=0.9, remove_threshold=0.1):
-    plot_feature_bar(test_listing, successful, features, top_k=top_k)
-    plot_dot_lollipop(test_listing, successful, features, top_k=top_k)
-    plot_recommendation_map(test_listing, successful, features, top_k=top_k,
-                            add_threshold=add_threshold, remove_threshold=remove_threshold)
-    plot_parallel_coordinates(test_listing, successful, features, top_k=top_k)
+BUCKET_PREFIXES = ["price_", "min_nights_"]
 
 
 # -----------------------------
@@ -256,10 +162,18 @@ def recommend_features(train_df, test_listing, feature_cols, top_k=15, min_ratin
 def find_recommendations(add_threshold, current_features, filtered_features, remove_threshold, similar_features):
     recommendations = {}
     for col in tqdm(filtered_features, desc="Analyzing features"):
+        in_bucket = False
+        for pref in BUCKET_PREFIXES:
+            if col.startswith(pref):
+                in_bucket = True
+                break
+        if in_bucket:
+            continue
         if current_features[col] < 0.5 and similar_features[col] >= add_threshold:
             recommendations[col] = "Consider ADDING (very common in successful listings)"
         elif current_features[col] > 0.5 and similar_features[col] <= remove_threshold:
-            recommendations[col] = "Consider REMOVING (rare in successful listings)"
+            if not col.startswith(AMENITY_PREFIX):
+                recommendations[col] = "Consider REMOVING (rare in successful listings)"
     return recommendations
 
 
@@ -351,4 +265,4 @@ def run_pipeline(csv_path, test_size=0.2, random_state=40, min_rating=4.9, top_k
 
 if __name__ == '__main__':
     path = r"C:\Users\hodos\Documents\Uni\Uni-Year-3\Semester2\Data\final_norm_database.csv"
-    run_pipeline(path, min_rating=4.98, top_k=25, remove_threshold= 30, add_threshold=70)  # Example: only keep listings with rating >= 80
+    run_pipeline(path, min_rating=4.98, top_k=25, remove_threshold=0.30, add_threshold=0.70)
