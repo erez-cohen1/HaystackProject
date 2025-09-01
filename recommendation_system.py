@@ -4,18 +4,56 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
+import matplotlib
+
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
+import seaborn as sns
+from pandas.plotting import parallel_coordinates
 
 # -----------------------------
 # Config
 # -----------------------------
+AMENITY_PREFIX = "has"
+
 IMMUTABLE_COLS = [
-    "bedrooms_group", "city", "area", "room_type", "accommodates_group", "beds_group"
+    "bedrooms_group", "city", "area", "room_type", "accommodates_group",
+    "beds_group", "Amsterdam", "Barcelona", "Paris", "accommodates_1",
+    "accommodates_2", "accommodates_3-4", "accommodates_5-6", "accommodates_7+",
+    "bathrooms_0.5-1", "bathrooms_1.5", "bathrooms_2-2.5", "bathrooms_3+", "beds_0-1", "beds_2", "beds_3-4", "beds_5+",
+    "entire_house", "shared_room_in_house", "hotel/hostel_room"
 ]  # cannot change
 
 EXCLUDE_FROM_RECOMMEND = [
-    "has_view_core", "has_parking_core", "has_outdoors_core",
-    "has_accessibility_core", "has_attractions_nearby_core"
+    AMENITY_PREFIX + "_view_core", AMENITY_PREFIX + "_parking_core", AMENITY_PREFIX + "_outdoors_core",
+    AMENITY_PREFIX + "_accessibility_core", AMENITY_PREFIX + "_attractions_nearby_core"
 ]
+
+REMOVE_COLS = [
+    "id", "total_host_1", "total_host_2", "total_host_3-5", "total_host_6-20", "total_host_21+"
+]
+BUCKET_PREFIXES = ["price_", "min_nights_"]
+
+# -----------------------------
+# Config for success definitions
+# -----------------------------
+SUCCESS_METRICS = {
+    "rating": {
+        "col": "review_scores_rating",
+        "drop": ["estimated_occupancy_l365d", "estimated_revenue_l365d"]
+    },
+    "occupancy": {
+        "col": "estimated_occupancy_l365d",
+        "drop": ["review_scores_rating", "estimated_revenue_l365d"]
+    },
+    "revenue": {
+        "col": "estimated_revenue_l365d",
+        "drop": ["review_scores_rating", "estimated_occupancy_l365d"]
+    }
+}
+
+SUCCESS_METRIC_COLS = ["review_scores_rating", "estimated_occupancy_l365d", "estimated_revenue_l365d"]
+
 
 # -----------------------------
 # Preprocessing
@@ -33,7 +71,6 @@ def preprocess_features(df, feature_cols, scaler=None):
     return X, scaler
 
 
-
 def filter_similar_pool(df, listing):
     """Keep only listings with same immutable attributes as the test listing"""
     cond = pd.Series(True, index=df.index)
@@ -42,103 +79,265 @@ def filter_similar_pool(df, listing):
             cond &= (df[col] == listing[col])
     return df[cond].copy()
 
+
 # -----------------------------
 # Recommendation System
 # -----------------------------
-def recommend_features(train_df, test_listing, feature_cols, top_k=5):
-    # Step 1: Filter comparable listings in train
-    successful = filter_similar_pool(train_df, test_listing)
-    if successful.empty:
-        return {"message": "No similar listings found."}
+def compute_feature_agreements(neighbors, test_listing, feature_cols):
+    """
+    For each feature, compute the % of neighbors that agree with the test listing.
+    """
+    agreements = {}
+    for f in feature_cols:
+        if f in EXCLUDE_FROM_RECOMMEND:  # ignore excluded features
+            continue
 
-    # Step 2: Feature selection (drop excluded cols)
-    filtered_features = [c for c in feature_cols if c not in EXCLUDE_FROM_RECOMMEND]
+        if f not in neighbors.columns:
+            continue
 
-    # Step 3: Keep only numeric columns
-    filtered_features = [c for c in filtered_features if np.issubdtype(train_df[c].dtype, np.number)]
+        test_val = test_listing[f]
+        same = (neighbors[f] == test_val).sum()
+        total = len(neighbors)
+        agreements[f] = 100.0 * same / total if total > 0 else 0.0
+    return agreements
 
-    # Step 4: Scale features using train only
-    X_train, scaler = preprocess_features(train_df, filtered_features)
-    # After filtering
-    successful = successful.copy()
-    successful[filtered_features] = successful[filtered_features].fillna(0)
 
-    X_success = scaler.transform(successful[filtered_features])
+def recommend_bucket_features(neighbors, test_listing, bucket_prefixes):
+    """
+    For each bucket group (by prefix), recommend the most popular bucket
+    among neighbors if the test listing is not in it.
+    """
+    bucket_recs = {}
 
-    X_test_listing, _ = preprocess_features(
-        pd.DataFrame([test_listing]), filtered_features, scaler
+    for prefix in bucket_prefixes:
+        # Get all columns that belong to this bucket group
+        bucket_cols = [col for col in neighbors.columns if col.startswith(prefix)]
+        if not bucket_cols:
+            continue
+
+        # Compute the popularity of each bucket among neighbors (mean ~ percentage of listings with it)
+        popularity = neighbors[bucket_cols].mean()
+
+        # Find the most popular bucket column
+        most_popular_bucket = popularity.idxmax()
+
+        # Find which bucket the test listing currently belongs to
+        test_bucket = [col for col in bucket_cols if test_listing.get(col, 0) == 1]
+        test_bucket = test_bucket[0] if test_bucket else None
+
+        # Recommend change if test listing bucket != most popular
+        if test_bucket != most_popular_bucket:
+            bucket_recs[prefix] = (
+                f"Test listing is in '{test_bucket}' but most successful listings "
+                f"are in '{most_popular_bucket}'. Recommend switching."
+            )
+        else:
+            print("test listing is in the most popular bucket", most_popular_bucket)
+
+    return bucket_recs
+
+
+def recommend_features(train_df, test_listing, feature_cols, top_k=15,
+                       success_metric="rating", metric_threshold=0.9,
+                       add_threshold=0.9, remove_threshold=0.1):
+    successful, test_listing = filter_successful_comparable_listings(
+        success_metric, metric_threshold, test_listing, train_df
     )
 
-    # Diagnostic info before similarity
-    print("=== Diagnostics ===")
-    print("Filtered features:", filtered_features)
-    print("X_test_listing shape:", X_test_listing.shape)
-    print("X_success shape:", X_success.shape)
-    print("NaNs in X_test_listing:", np.isnan(X_test_listing).sum())
-    print("NaNs in X_success:", np.isnan(X_success).sum())
-    print("===================")
+    if successful.empty:
+        return {"message": "No similar listings found after filtering."}
 
-    # Step 5: Compute similarity with try/except
-    try:
-        sim_scores = cosine_similarity(X_test_listing, X_success).flatten()
-    except ValueError as e:
-        print("ERROR during cosine_similarity:", e)
-        # Show where NaNs are
-        print("Columns with NaNs in X_test_listing:")
-        for i, col in enumerate(filtered_features):
-            if np.isnan(X_test_listing[0, i]):
-                print(f" - {col}")
-        print("Columns with NaNs in X_success:")
-        nan_counts = np.isnan(X_success).sum(axis=0)
-        for i, count in enumerate(nan_counts):
-            if count > 0:
-                print(f" - {filtered_features[i]}: {count} NaNs")
-        # Stop execution gracefully
-        return {"error": "NaNs detected during similarity computation"}
+    metric_col = SUCCESS_METRICS[success_metric]["col"]
 
-    top_idx = np.argsort(sim_scores)[-top_k:]
-    similar_features = successful.iloc[top_idx][filtered_features].mean()
-    current_features = test_listing[filtered_features]
+    X_success, X_test_listing, filtered_features, successful = preprocess_successful_comparable_listings(
+        feature_cols, metric_col, successful, test_listing, train_df
+    )
 
-    # Step 6: Recommendations
+    current_features, neighbors, similar_features = find_knn_from_successful(
+        X_success, X_test_listing, filtered_features, successful,
+        test_listing, top_k
+    )
+
+    recommendations = find_recommendations(
+        add_threshold, current_features, filtered_features, remove_threshold,
+        similar_features
+    )
+
+    agreements = compute_feature_agreements(neighbors, test_listing, filtered_features)
+    bucket_recs = recommend_bucket_features(neighbors, test_listing, BUCKET_PREFIXES)
+
+    print("\n=== Feature Agreement with Neighbors ===")
+    for f, pct in agreements.items():
+        print(f"{f}: {pct:.1f}%")
+
+    print("\n=== Bucket Recommendations ===")
+    for prefix, rec in bucket_recs.items():
+        print(f"{prefix}: {rec}")
+
+    for feature, msg in recommendations.items():
+        print(f"{feature}: {msg}")
+
+    return {
+        "recommendations": recommendations,
+        "agreements": agreements,
+        "buckets": bucket_recs
+    }
+
+
+def find_recommendations(add_threshold, current_features, filtered_features, remove_threshold, similar_features):
     recommendations = {}
     for col in tqdm(filtered_features, desc="Analyzing features"):
-        if similar_features[col] > 0.5 and current_features[col] < 0.5:
-            recommendations[col] = round(similar_features[col], 2)
-
+        in_bucket = False
+        for pref in BUCKET_PREFIXES:
+            if col.startswith(pref):
+                in_bucket = True
+                break
+        if in_bucket:
+            continue
+        if current_features[col] < 0.5 and similar_features[col] >= add_threshold:
+            recommendations[col] = "Consider ADDING (very common in successful listings)"
+        elif current_features[col] > 0.5 and similar_features[col] <= remove_threshold:
+            if not col.startswith(AMENITY_PREFIX):
+                recommendations[col] = "Consider REMOVING (rare in successful listings)"
     return recommendations
+
+
+def find_knn_from_successful(X_success, X_test_listing, filtered_features, successful, test_listing, top_k):
+    sim_scores = cosine_similarity(X_test_listing, X_success).flatten()
+    top_idx = np.argsort(sim_scores)[-top_k:]
+    neighbors = successful.iloc[top_idx]
+    similar_features = neighbors[filtered_features].mean()
+    current_features = test_listing[filtered_features]
+    return current_features, neighbors, similar_features
+
+
+def preprocess_successful_comparable_listings(feature_cols, rating_col, successful, test_listing, train_df):
+    # Keep numeric features excluding success metrics
+    numeric_features = [
+        c for c in feature_cols
+        if np.issubdtype(train_df[c].dtype, np.number) and c not in SUCCESS_METRIC_COLS
+    ]
+
+    filtered_features = [c for c in numeric_features if c not in EXCLUDE_FROM_RECOMMEND]
+
+    # Fill NaNs
+    train_df[numeric_features] = train_df[numeric_features].fillna(0)
+    successful = successful.copy()
+    successful[numeric_features] = successful[numeric_features].fillna(0)
+    test_listing_filled = test_listing.copy()
+    test_listing_filled[numeric_features] = test_listing_filled[numeric_features].fillna(0)
+
+    # Fit scaler on train_df numeric features
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(train_df[numeric_features])
+
+    # Transform successful and test listing
+    X_success = scaler.transform(successful[numeric_features])
+    X_test_listing, _ = preprocess_features(pd.DataFrame([test_listing_filled]), numeric_features, scaler)
+
+    return X_success, X_test_listing, filtered_features, successful
+
+
+
+
+def filter_successful_comparable_listings(success_metric, metric_threshold, test_listing, train_df):
+    """
+    Filter listings similar to the test listing AND successful by the chosen metric.
+    success_metric: one of ["rating", "occupancy", "revenue"]
+    threshold: percentile cutoff (e.g., 0.8 means top 20%)
+    """
+    metric_conf = SUCCESS_METRICS[success_metric]
+    metric_col = metric_conf["col"]
+
+    successful = filter_similar_pool(train_df, test_listing)
+
+    if metric_col in successful.columns:
+        cutoff = successful[metric_col].quantile(metric_threshold)
+        successful = successful[successful[metric_col] >= cutoff]
+
+    # Drop other success metric cols
+    successful = successful.drop(columns=metric_conf["drop"], errors="ignore")
+    test_listing = test_listing.drop(metric_conf["drop"], errors="ignore")
+
+    return successful, test_listing
+
+
+def normalize_metric_cols(df, metric_cols):
+    # Normalize success metrics to 0-1
+    for metric in metric_cols:
+        if metric in df.columns:
+            min_val = df[metric].min()
+            max_val = df[metric].max()
+            if max_val > min_val:  # avoid division by zero
+                df[metric] = (df[metric] - min_val) / (max_val - min_val)
+            else:
+                df[metric] = 0.5  # fallback if all values are equal
 
 
 # -----------------------------
 # Example Pipeline
 # -----------------------------
-def run_pipeline(csv_path, test_size=0.2, random_state=42):
-    # Load dataset
+def run_pipeline(csv_path, test_size=0.2, random_state=40, success_metric="rating",
+                 metric_threshold=0.9, top_k=20, add_threshold=0.80, remove_threshold=0.20,
+                 test_rating_threshold=0.5):
+    """
+    success_metric: one of ["rating", "occupancy", "revenue"]
+    threshold: percentile cutoff for defining success
+    """
     df = pd.read_csv(csv_path)
-
-    # Define feature columns (all except immutable + excluded + ID)
+    normalize_metric_cols(df, SUCCESS_METRIC_COLS)
     feature_cols = [
         col for col in df.columns
         if col not in IMMUTABLE_COLS
            and col not in EXCLUDE_FROM_RECOMMEND
-           and col != "id"  # drop the ID column
+           and col not in REMOVE_COLS
     ]
 
-    # Split into train/test
     train_df, test_df = train_test_split(df, test_size=test_size, random_state=random_state)
+    success_metric_col = SUCCESS_METRICS[success_metric]["col"]
+    # Pick test listing (for "rating" we still try to pick low-rated ones)
+    if success_metric == "rating" and success_metric_col in test_df.columns:
+        low_rating_test_df = test_df[test_df[success_metric_col] <= test_rating_threshold]
+        if low_rating_test_df.empty:
+            print(f"No test listings below rating threshold {test_rating_threshold}. Using random test listing.")
+            test_listing = test_df.sample(1, random_state=random_state).iloc[0]
+        else:
+            test_listing = low_rating_test_df.sample(1, random_state=random_state).iloc[0]
 
-    # Pick a random listing from test
-    test_listing = test_df.sample(1, random_state=random_state).iloc[0]
+    elif success_metric == "occupancy" and success_metric_col in test_df.columns:
+        low_occupancy_test_df = test_df[test_df[success_metric_col] <= test_rating_threshold]
+        if low_occupancy_test_df.empty:
+            print(f"No test listings below occupancy threshold {test_rating_threshold}. Using random test listing.")
+            test_listing = test_df.sample(1, random_state=random_state).iloc[0]
+        else:
+            test_listing = low_occupancy_test_df.sample(1, random_state=random_state).iloc[0]
+    elif success_metric == "revenue" and success_metric_col in test_df.columns:
+        low_estimated_revenue = test_df[test_df[success_metric_col] <= test_rating_threshold]
+        if low_estimated_revenue.empty:
+            print(
+                f"No test listings below estimated revenue threshold {test_rating_threshold}. Using random test listing.")
+            test_listing = test_df.sample(1, random_state=random_state).iloc[0]
+        else:
+            test_listing = low_estimated_revenue.sample(1, random_state=random_state).iloc[0]
+    else:
+        test_listing = test_df.sample(1, random_state=random_state).iloc[0]
+    test_listing = test_listing.drop(columns=SUCCESS_METRICS[success_metric]["drop"])
+    # Remove rating if present
+    if success_metric_col in test_listing.index:
+        print(success_metric, test_listing[success_metric_col])
+        test_listing = test_listing.drop(success_metric_col)
 
-    # Generate recommendations
-    recs = recommend_features(train_df, test_listing, feature_cols, top_k=5)
+    recs = recommend_features(
+        train_df, test_listing, feature_cols, top_k=top_k,
+        success_metric=success_metric, metric_threshold=metric_threshold,
+        add_threshold=add_threshold, remove_threshold=remove_threshold
+    )
 
     print("\nPicked test listing ID:", test_listing.get("id", "unknown"))
-    print("listing", test_listing)
-    print("Recommendations:", recs)
 
     return recs
 
+
 if __name__ == '__main__':
-    path = r"C:\Users\hodos\Documents\Uni\Uni-Year-3\Semester2\Data\freq_item_db.csv"
-    run_pipeline(path)
+    path = r"C:\Users\hodos\Documents\Uni\Uni-Year-3\Semester2\Data\final_norm_database.csv"
+    run_pipeline(path, top_k=25, remove_threshold=0.30, add_threshold=0.70, success_metric="revenue")
