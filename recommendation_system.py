@@ -277,7 +277,7 @@ def normalize_metric_cols(df, metric_cols):
 # -----------------------------
 # Example Pipeline
 # -----------------------------
-def run_pipeline(csv_path, test_size=0.2, random_state=40, success_metric="rating",
+def run_pipeline(csv_path, random_state=42, success_metric="rating",
                  metric_threshold=0.9, top_k=20, add_threshold=0.80, remove_threshold=0.20,
                  test_rating_threshold=0.5):
     """
@@ -293,42 +293,14 @@ def run_pipeline(csv_path, test_size=0.2, random_state=40, success_metric="ratin
            and col not in REMOVE_COLS
     ]
 
-    train_df, test_df = train_test_split(df, test_size=test_size, random_state=random_state)
-    success_metric_col = SUCCESS_METRICS[success_metric]["col"]
-    # Pick test listing (for "rating" we still try to pick low-rated ones)
-    if success_metric == "rating" and success_metric_col in test_df.columns:
-        low_rating_test_df = test_df[test_df[success_metric_col] <= test_rating_threshold]
-        if low_rating_test_df.empty:
-            print(f"No test listings below rating threshold {test_rating_threshold}. Using random test listing.")
-            test_listing = test_df.sample(1, random_state=random_state).iloc[0]
-        else:
-            test_listing = low_rating_test_df.sample(1, random_state=random_state).iloc[0]
-
-    elif success_metric == "occupancy" and success_metric_col in test_df.columns:
-        low_occupancy_test_df = test_df[test_df[success_metric_col] <= test_rating_threshold]
-        if low_occupancy_test_df.empty:
-            print(f"No test listings below occupancy threshold {test_rating_threshold}. Using random test listing.")
-            test_listing = test_df.sample(1, random_state=random_state).iloc[0]
-        else:
-            test_listing = low_occupancy_test_df.sample(1, random_state=random_state).iloc[0]
-    elif success_metric == "revenue" and success_metric_col in test_df.columns:
-        low_estimated_revenue = test_df[test_df[success_metric_col] <= test_rating_threshold]
-        if low_estimated_revenue.empty:
-            print(
-                f"No test listings below estimated revenue threshold {test_rating_threshold}. Using random test listing.")
-            test_listing = test_df.sample(1, random_state=random_state).iloc[0]
-        else:
-            test_listing = low_estimated_revenue.sample(1, random_state=random_state).iloc[0]
-    else:
-        test_listing = test_df.sample(1, random_state=random_state).iloc[0]
-    test_listing = test_listing.drop(columns=SUCCESS_METRICS[success_metric]["drop"])
+    success_metric_col, test_listing = sample_bad_listing(random_state, success_metric, df, test_rating_threshold)
     # Remove rating if present
     if success_metric_col in test_listing.index:
         print(success_metric, test_listing[success_metric_col])
         test_listing = test_listing.drop(success_metric_col)
 
     recs = recommend_features(
-        train_df, test_listing, feature_cols, top_k=top_k,
+        df, test_listing, feature_cols, top_k=top_k,
         success_metric=success_metric, metric_threshold=metric_threshold,
         add_threshold=add_threshold, remove_threshold=remove_threshold
     )
@@ -338,6 +310,83 @@ def run_pipeline(csv_path, test_size=0.2, random_state=40, success_metric="ratin
     return recs
 
 
+def sample_bad_listing(random_state, success_metric, test_df, test_rating_threshold):
+    success_metric_col = SUCCESS_METRICS[success_metric]["col"]
+    # Pick test listing (for "rating" we still try to pick low-rated ones)
+    if success_metric_col in test_df.columns:
+        test_listing = filter_bad_listing(random_state, success_metric_col, test_df, test_rating_threshold)
+    else:
+        test_listing = test_df.sample(1, random_state=random_state).iloc[0]
+    test_listing = test_listing.drop(columns=SUCCESS_METRICS[success_metric]["drop"])
+    return success_metric_col, test_listing
+
+
+def filter_bad_listing(random_state, success_metric_col, test_df, test_rating_threshold):
+    bad_listings = test_df[test_df[success_metric_col] <= test_rating_threshold]
+    if bad_listings.empty:
+        print(
+            f"No test listings below estimated revenue threshold {test_rating_threshold}. Using random test listing.")
+        test_listing = test_df.sample(1, random_state=random_state).iloc[0]
+    else:
+        test_listing = bad_listings.sample(1, random_state=random_state).iloc[0]
+    return test_listing
+
+def analyze_all_metrics(csv_path, k_range=range(1, 51),
+                        remove_threshold=0.30, add_threshold=0.70):
+    all_results = []
+
+    for metric in ["rating", "occupancy", "revenue"]:
+        for k in tqdm(k_range, desc=f"Testing k for {metric}"):
+            recs = run_pipeline(
+                csv_path, top_k=k,
+                remove_threshold=remove_threshold,
+                add_threshold=add_threshold,
+                success_metric=metric
+            )
+
+            n_add = sum("ADDING" in v for v in recs["recommendations"].values())
+            n_remove = sum("REMOVING" in v for v in recs["recommendations"].values())
+            n_bucket = len(recs["buckets"])
+            avg_agreement = np.mean(list(recs["agreements"].values())) if recs["agreements"] else 0
+
+            all_results.append({
+                "metric": metric,
+                "k": k,
+                "add": n_add,
+                "remove": n_remove,
+                "bucket": n_bucket,
+                "avg_agreement": avg_agreement
+            })
+
+    return pd.DataFrame(all_results)
+
+
+def plot_all_metrics(df):
+    # Melt the dataframe so we can map "type" (add/remove/bucket) separately
+    df_melt = df.melt(id_vars=["metric", "k"],
+                      value_vars=["add", "remove", "bucket"],
+                      var_name="type", value_name="count")
+
+    plt.figure(figsize=(14, 7))
+    sns.lineplot(data=df_melt, x="k", y="count",
+                 hue="metric", style="type", linewidth=2, markers=True)
+    plt.ylabel("Number of Recommendations")
+    plt.title("Effect of k on Recommendations (all metrics)")
+    plt.legend(title="Metric / Type", bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.show()
+
+    # Agreement plot stays simple
+    plt.figure(figsize=(14, 7))
+    sns.lineplot(data=df, x="k", y="avg_agreement", hue="metric", linewidth=2)
+    plt.ylabel("Average Feature Agreement (%)")
+    plt.title("Average Agreement vs k (all metrics)")
+    plt.show()
+
+
+
+
 if __name__ == '__main__':
     path = r"C:\Users\hodos\Documents\Uni\Uni-Year-3\Semester2\Data\final_norm_database.csv"
-    run_pipeline(path, top_k=25, remove_threshold=0.30, add_threshold=0.70, success_metric="revenue")
+    # run_pipeline(path, top_k=25, remove_threshold=0.30, add_threshold=0.70, success_metric="revenue")
+    df_all = analyze_all_metrics(path, k_range=range(1, 51))
+    plot_all_metrics(df_all)
