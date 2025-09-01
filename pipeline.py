@@ -1,10 +1,10 @@
 import pandas as pd
 
-import FrequentItemSet
-import NormalizeDescriptions
+import frequent_itemset
+import normalize_descriptions
 # import NormalizeDescriptions
 # import NormalizeImageCol
-import NormalizeRegularCols
+import normalize_regular_cols
 import clean_data
 # import normalize_amenities
 
@@ -119,6 +119,34 @@ def create_merged_city_databases():
 if __name__ == '__main__':
     # df=create_merged_city_databases()
     # df=clean_data.clean_db(df,'cleaned_merged_db')
-    merge_final_dbs()
-    df=pd.read_csv('final_norm_database.csv')
-    FrequentItemSet.find_freq_itemsets_by_diff_popularity(df)
+    # merge_final_dbs()
+    df1 = pd.read_csv('normalized_reg_cols.csv')
+    df2 = pd.read_csv('image_analysis_norm.csv')
+    df3 = pd.read_csv('normalized_description.csv')
+    df4 = pd.read_csv('cleaned_norm_amenities.csv')
+
+    # this drop shouldnt be here but quick fix
+    # df4 = df4.drop('none', axis=1)
+
+    # print(len(df1) + len(df2) )
+    # df1 = df1[['id', 'review_scores_rating', 'estimated_occupancy_l365d',
+                                                   # 'estimated_revenue_l365d']]
+    merged1 = pd.merge(df1, df2, on="id", how="inner")
+    merged1 = pd.merge(df3, merged1, on="id", how="inner")
+    merged1 = pd.merge(df4, merged1, on="id", how="inner")
+    merged1.drop(['Amsterdam','Barcelona','Paris'], axis=1, inplace=True)
+
+    # print("len of the table is: " + str(len(merged1)))
+    active_sum = merged1['bathrooms_0.5-1'].sum()
+    print(f"Sum of 'active' column: {active_sum}")
+    merged1 = merged1[merged1['entire_house'] == 1]
+
+    # quick fix, i found and fixed the code where it was
+    # merged2.drop('extracted_number', axis=1, inplace=True)
+
+    # df=pd.read_csv('final_norm_database.csv')
+    FrequentItemSet.find_freq_itemsets_by_diff_popularity(merged1)
+    # print(df['estimated_occupancy_l365d'].quantile(0.8))
+    # print(df['estimated_occupancy_l365d'].quantile(0.5))
+    # print(df['estimated_revenue_l365d'].quantile(0.8))
+    # print(df['estimated_revenue_l365d'].quantile(0.5))

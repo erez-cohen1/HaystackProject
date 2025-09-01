@@ -3,7 +3,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from sklearn.cluster import KMeans
 
-import ImageAnalysis as ia
+import image_analysis as ia
 import time
 
 
