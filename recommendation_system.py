@@ -32,7 +32,7 @@ EXCLUDE_FROM_RECOMMEND = [
 REMOVE_COLS = [
     "id", "total_host_1", "total_host_2", "total_host_3-5", "total_host_6-20", "total_host_21+"
 ]
-BUCKET_PREFIXES = ["price_", "min_nights_"]
+BUCKET_PREFIXES = ["price_", "min_nights_", "img_bright_"]
 
 # -----------------------------
 # Config for success definitions
@@ -277,14 +277,16 @@ def normalize_metric_cols(df, metric_cols):
 # -----------------------------
 # Example Pipeline
 # -----------------------------
-def run_pipeline(csv_path, random_state=42, success_metric="rating",
-                 metric_threshold=0.9, top_k=20, add_threshold=0.80, remove_threshold=0.20,
-                 test_rating_threshold=0.5):
-    """
-    success_metric: one of ["rating", "occupancy", "revenue"]
-    threshold: percentile cutoff for defining success
-    """
-    df = pd.read_csv(csv_path)
+def run_pipeline(data, random_state=42, success_metric="rating",
+                 metric_threshold=0.9, top_k=20, add_threshold=0.80,
+                 remove_threshold=0.20, test_rating_threshold=0.5):
+
+    # If input is a path, read it
+    if isinstance(data, str):
+        df = pd.read_csv(data)
+    else:
+        df = data.copy()
+
     normalize_metric_cols(df, SUCCESS_METRIC_COLS)
     feature_cols = [
         col for col in df.columns
@@ -294,7 +296,7 @@ def run_pipeline(csv_path, random_state=42, success_metric="rating",
     ]
 
     success_metric_col, test_listing = sample_bad_listing(random_state, success_metric, df, test_rating_threshold)
-    # Remove rating if present
+
     if success_metric_col in test_listing.index:
         print(success_metric, test_listing[success_metric_col])
         test_listing = test_listing.drop(success_metric_col)
@@ -310,13 +312,16 @@ def run_pipeline(csv_path, random_state=42, success_metric="rating",
     return recs
 
 
+
 def sample_bad_listing(random_state, success_metric, test_df, test_rating_threshold):
     success_metric_col = SUCCESS_METRICS[success_metric]["col"]
     # Pick test listing (for "rating" we still try to pick low-rated ones)
     if success_metric_col in test_df.columns:
         test_listing = filter_bad_listing(random_state, success_metric_col, test_df, test_rating_threshold)
     else:
-        test_listing = test_df.sample(1, random_state=random_state).iloc[0]
+        # test_listing = test_df.sample(1, random_state=random_state).iloc[0]
+        test_listing = test_df.sample(1).iloc[0]
+    print(test_listing)
     test_listing = test_listing.drop(columns=SUCCESS_METRICS[success_metric]["drop"])
     return success_metric_col, test_listing
 
@@ -326,10 +331,13 @@ def filter_bad_listing(random_state, success_metric_col, test_df, test_rating_th
     if bad_listings.empty:
         print(
             f"No test listings below estimated revenue threshold {test_rating_threshold}. Using random test listing.")
-        test_listing = test_df.sample(1, random_state=random_state).iloc[0]
+        # test_listing = test_df.sample(1, random_state=random_state).iloc[0]
+        test_listing = test_df.sample(1).iloc[0]
     else:
-        test_listing = bad_listings.sample(1, random_state=random_state).iloc[0]
+        # test_listing = bad_listings.sample(1, random_state=random_state).iloc[0]
+        test_listing = test_df.sample(1).iloc[0]
     return test_listing
+
 
 def analyze_all_metrics(csv_path, k_range=range(1, 51),
                         remove_threshold=0.30, add_threshold=0.70):
@@ -387,6 +395,6 @@ def plot_all_metrics(df):
 
 if __name__ == '__main__':
     path = r"C:\Users\hodos\Documents\Uni\Uni-Year-3\Semester2\Data\final_norm_database.csv"
-    # run_pipeline(path, top_k=25, remove_threshold=0.30, add_threshold=0.70, success_metric="revenue")
-    df_all = analyze_all_metrics(path, k_range=range(1, 51))
-    plot_all_metrics(df_all)
+    run_pipeline(path, top_k=25, remove_threshold=0.30, add_threshold=0.70, success_metric="occupancy")
+    # df_all = analyze_all_metrics(path, k_range=range(1, 51))
+    # plot_all_metrics(df_all)
