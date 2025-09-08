@@ -1,10 +1,8 @@
 import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
-from mlxtend.frequent_patterns import apriori, association_rules
 import matplotlib.pyplot as plt
-from sklearn.metrics import silhouette_score, silhouette_samples
-from wordcloud import WordCloud
+from sklearn.metrics import silhouette_score
 import seaborn as sns
 import numpy as np
 from sklearn.metrics import pairwise_distances
@@ -174,7 +172,7 @@ if "price" in df.columns:
     plt.tight_layout()
     plt.show()
 else:
-    print("⚠️ No 'price' column in dataframe — cannot compute average price per cluster.")
+    print("No 'price' column in dataframe — cannot compute average price per cluster.")
 
 
 # --- 6. VISUALIZE SIMILARITY MATRIX ---
@@ -201,4 +199,5 @@ plt.title("Similarity Matrix of Sampled Listings")
 plt.xlabel("Points")
 plt.ylabel("Points")
 plt.tight_layout()
+
 plt.show()
