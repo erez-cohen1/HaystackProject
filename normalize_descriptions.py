@@ -106,7 +106,7 @@ TAGS = {
 # try:
 #     df = pd.read_csv("clean_merged_database.csv")
 # except FileNotFoundError:
-#     print("❌ listings.csv not found")
+#     print("listings.csv not found")
 #     exit()
 #
 # if "description" not in df.columns:
@@ -183,7 +183,7 @@ def normalize_descriptions(df,outputfile='normalized_description.csv'):
 
     # Save with ID included
     one_hot_df_with_id.to_csv(outputfile, index=False, encoding="utf-8")
-    print("✅ One-hot encoded tags with ID saved to" +outputfile)
+    print("One-hot encoded tags with ID saved to" +outputfile)
     return one_hot_df_with_id
 
 
