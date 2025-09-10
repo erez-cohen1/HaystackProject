@@ -17,8 +17,7 @@ from pandas.plotting import parallel_coordinates
 AMENITY_PREFIX = "has"
 
 IMMUTABLE_COLS = [
-    "bedrooms_group", "city", "area", "room_type", "accommodates_group",
-    "beds_group", "Amsterdam", "Barcelona", "Paris", "accommodates_1",
+    "Amsterdam", "Barcelona", "Paris", "accommodates_1",
     "accommodates_2", "accommodates_3-4", "accommodates_5-6", "accommodates_7+",
     "bathrooms_0.5-1", "bathrooms_1.5", "bathrooms_2-2.5", "bathrooms_3+", "beds_0-1", "beds_2", "beds_3-4", "beds_5+",
     "entire_house", "shared_room_in_house", "hotel/hostel_room"
@@ -309,8 +308,7 @@ def run_pipeline(data, random_state=42, success_metric="rating",
 
     print("\nPicked test listing ID:", test_listing.get("id", "unknown"))
 
-    return recs
-
+    return recs, test_listing
 
 
 def sample_bad_listing(random_state, success_metric, test_df, test_rating_threshold):
