@@ -14,7 +14,6 @@ def remove_rows(df):
     required_columns = [
         "host_id",
         "host_listings_count",
-        "neighbourhood_cleansed",
         "property_type",
         "accommodates",
         "bathrooms_text",
