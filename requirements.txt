@@ -1,23 +1,23 @@
 ﻿# Core Data Science Libraries
-pandas==2.2.2
-numpy==1.26.4
-scikit-learn==1.4.2
-scipy==1.13.0
-tqdm==4.66.2
+pandas~=2.2.2
+numpy~=1.26.4
+scikit-learn~=1.4.2
+scipy~=1.13.0
+tqdm~=4.66.2
 
 # NLP Library for Semantic Similarity
-spacy==3.7.4
+spacy~=3.7.4
 
 # spaCy Model with Word Vectors (Direct Download Link)
 # This line tells pip to download and install the specific model needed by the script.
 https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.7.1/en_core_web_md-3.7.1-py3-none-any.whl
 
 # NLP Library for Named Entity Recognition (Brand Removal)
-flair==0.13.1
+flair~=0.13.1
 
 # Core deep learning framework required by Flair
-torch==2.2.2
-torchvision==0.17.2
+torch~=2.2.2
+torchvision~=0.17.2
 streamlit~=1.49.1
 requests~=2.32.4
 pillow~=11.3.0
