@@ -1,106 +1,21 @@
 import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
-from mlxtend.frequent_patterns import apriori, association_rules
 import matplotlib.pyplot as plt
+from sklearn.metrics import silhouette_score
 import seaborn as sns
+import numpy as np
+from sklearn.metrics import pairwise_distances
+
 
 # --- PANDAS DISPLAY OPTIONS ---
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', 1000)
 pd.set_option('display.max_colwidth', None)
 
-
-# ==============================================================================
-# Frequent Itemset & Association Rule Functions
-# ==============================================================================
-
-def find_top_associations(frequent_itemsets, num_rules=10):
-    """Generates and prints the top association rules from frequent itemsets."""
-    try:
-        rules = association_rules(frequent_itemsets, metric="lift", min_threshold=1.0)
-        meaningful_rules = rules[
-            (rules['support'] >= 0.05) &
-            (rules['confidence'] >= 0.7) &
-            (rules['lift'] > 1)
-            ].copy()
-
-        if meaningful_rules.empty:
-            print("No meaningful association rules found with the current thresholds.")
-            return
-
-        meaningful_rules = meaningful_rules.sort_values(by='lift', ascending=False).head(num_rules)
-        print("\n--- Top Association Rules ---")
-        for _, row in meaningful_rules.iterrows():
-            antecedent = ', '.join(list(row['antecedents']))
-            consequent = ', '.join(list(row['consequents']))
-            print(f"({antecedent}) → ({consequent}) | "
-                  f"support={row['support']:.3f}, "
-                  f"confidence={row['confidence']:.3f}, "
-                  f"lift={row['lift']:.3f}")
-    except Exception as e:
-        print(f"Could not generate association rules: {e}")
-
-
-def filter_columns_frequency(df, min_freq=0.05, max_freq=0.9):
-    """Removes columns that are too common or too rare for meaningful analysis."""
-    if df.empty:
-        return df
-    column_frequency = df.mean()
-    keep_mask = (column_frequency >= min_freq) & (column_frequency <= max_freq)
-    columns_to_keep = column_frequency[keep_mask].index
-    return df[columns_to_keep]
-
-
-def find_freq_itemsets(df):
-    """Main function to run the frequent itemset mining process on a dataframe."""
-    if df.empty:
-        print("Dataframe is empty, skipping itemset analysis.")
-        return
-
-    df = df.dropna()
-    df_filtered = filter_columns_frequency(df)
-
-    if df_filtered.empty:
-        print("No columns remaining after frequency filtering. Cannot find itemsets.")
-        return
-
-    try:
-        frequent_itemsets = apriori(df_filtered, min_support=0.2, use_colnames=True, low_memory=True)
-        print(f"Found {len(frequent_itemsets)} frequent itemsets.")
-
-        if not frequent_itemsets.empty:
-            find_top_associations(frequent_itemsets)
-
-            large_itemsets = frequent_itemsets[frequent_itemsets['itemsets'].apply(lambda x: len(x) > 4)]
-            if not large_itemsets.empty:
-                print("\n--- Top 5 Large Itemsets (by support) ---")
-                print(large_itemsets.sort_values(by='support', ascending=False).head(5))
-            else:
-                print("No large itemsets (size > 2) found.")
-        else:
-            print("No frequent itemsets found with min_support=0.2.")
-
-    except Exception as e:
-        print(f"An error occurred during Apriori analysis: {e}")
-
-
 # ==============================================================================
 # Main Clustering and Analysis Workflow
 # ==============================================================================
-
-# Define the specific columns for frequent itemset analysis
-# columns_for_frequent_itemsets = [
-#     'superhost', 'host_profile_pic', 'host_verified', 'instant_bookable_bin',
-#     'entire_house', 'shared_room_in_house', 'hotel/hostel_room',
-#     'accommodates_1', 'accommodates_2', 'accommodates_3-4', 'accommodates_5-6',"accommodates_7+",
-#     'bathrooms_0.5-1', 'bathrooms_1.5', 'bathrooms_2-2.5', 'bathrooms_3+',
-#     'beds_0-1', 'beds_2', 'beds_3-4', 'beds_5+',
-#     'price_100-160', 'price_160-256', 'price_256+',
-#     'min_nights_1', 'min_nights_2', 'min_nights_3', 'min_nights_4+',
-# ]
-
-
 # --- 1. LOAD AND PREPARE DATA ---
 try:
     df = pd.read_csv("final_norm_database.csv")
@@ -140,22 +55,12 @@ best_k = 4
 print(f"Performing K-Means clustering with k={best_k}...")
 kmeans = KMeans(n_clusters=best_k, random_state=42, n_init=10)
 df["cluster"] = kmeans.fit_predict(X_binary)
-
+# --- Compute silhouette score ---
+sil_score = silhouette_score(X_binary, df["cluster"])
+print(f"Silhouette Score for K-Means with k={best_k}: {sil_score:.3f}")
 
 # --- 4. ANALYZE CLUSTERS ---
 print(f"\n{'=' * 20} Cluster Analysis {'=' * 20}")
-
-# Part A: Analyze specific binary features with frequent itemset mining
-cluster_labels = sorted(df["cluster"].unique())
-for cluster_id in cluster_labels:
-    print(f"\n{'=' * 25} Analysis for Cluster {cluster_id} {'=' * 25}")
-    # Filter the DataFrame to the specific columns AND the current cluster
-    try:
-        cluster_df_filtered = df.loc[df["cluster"] == cluster_id, all_binary_cols].fillna(0)
-        find_freq_itemsets(cluster_df_filtered)
-    except KeyError as e:
-        print(f"Error: One or more columns for frequent itemsets not found in DataFrame: {e}")
-        continue
 
 # Part B: Analyze numerical features by calculating averages
 print(f"\n{'=' * 20} Numerical Feature Summary {'=' * 20}")
@@ -175,9 +80,14 @@ scatter = plt.scatter(X_pca[:, 0], X_pca[:, 1], c=df["cluster"], cmap="viridis",
 plt.xlabel("Principal Component 1")
 plt.ylabel("Principal Component 2")
 plt.title("PCA Projection of Airbnb Clusters (based on all binary features)")
-plt.legend(handles=scatter.legend_elements()[0], labels=cluster_labels, title="Clusters")
+plt.legend(
+    handles=scatter.legend_elements()[0],
+    labels=[f"Cluster {i}" for i in sorted(df["cluster"].unique())],
+    title="Clusters"
+)
 plt.grid(True)
 plt.show()
+
 
 # Save the original dataframe with the new 'cluster' column
 output_filename = "airbnb_clusters.csv"
@@ -245,5 +155,49 @@ plt.legend(title="Features")
 plt.tight_layout()
 plt.show()
 
+# --- AVERAGE PRICE PER K-MEANS CLUSTER ---
+if "price" in df.columns:
+    avg_price_kmeans = df.groupby("cluster")["price"].mean().round(2)
+
+    plt.figure(figsize=(8, 6))
+    sns.barplot(x=avg_price_kmeans.index, y=avg_price_kmeans.values, palette="viridis")
+    plt.title("Average Price per K-Means Cluster", fontsize=16)
+    plt.xlabel("Cluster", fontsize=12)
+    plt.ylabel("Average Price ($)", fontsize=12)
+
+    # Annotate bars with values
+    for i, val in enumerate(avg_price_kmeans.values):
+        plt.text(i, val, f"${val:.0f}", ha='center', va='bottom', fontsize=10)
+
+    plt.tight_layout()
+    plt.show()
+else:
+    print("No 'price' column in dataframe — cannot compute average price per cluster.")
 
 
+# --- 6. VISUALIZE SIMILARITY MATRIX ---
+print("\nCreating Similarity Matrix Visualization...")
+
+# First, order the data by cluster to group similar points together
+df_sorted = df.sort_values(by="cluster").reset_index(drop=True)
+
+# Sample a smaller subset to avoid long computation times on a large dataset
+# and make the visualization clearer
+# Sampling 200 listings from each cluster
+sample_df = df_sorted.groupby('cluster', group_keys=False).apply(lambda x: x.sample(n=min(len(x), 1000), random_state=42))
+
+# Use the binary features for distance calculation
+X_sample = sample_df[all_binary_cols]
+
+# Calculate the pairwise similarity matrix (1 - distance)
+# Using 'jaccard' is a good choice for binary data
+similarity_matrix = 1 - pairwise_distances(X_sample.values, metric='jaccard')
+# Create the heatmap plot
+plt.figure(figsize=(10, 8))
+sns.heatmap(similarity_matrix, cmap='jet', vmin=0, vmax=1)
+plt.title("Similarity Matrix of Sampled Listings")
+plt.xlabel("Points")
+plt.ylabel("Points")
+plt.tight_layout()
+
+plt.show()
